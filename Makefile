@@ -70,6 +70,9 @@ UNIT_TEST_DIRS=$(shell go list ./... | grep -v /test/)
 unit: envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -count=1 -short $(UNIT_TEST_DIRS)
 
+e2e: ginkgo
+	$(GINKGO) -trace -progress test/e2e
+
 ##@ Build
 
 .PHONY: build
@@ -94,10 +97,22 @@ install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
 
-.PHONY: deploy
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+.PHONY: kind-load
+kind-load: build-container kind
+	$(KIND) load docker-image $(IMG)
+
+.PHONY: kind-create
+kind-create: kind
+	$(KIND) create cluster
+	$(KIND) export kubeconfig
+
+.PHONY: run
+run: build-container kind-load install
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
+
+.PHONY: deploy
+deploy: kind-create run ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
