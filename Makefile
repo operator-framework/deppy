@@ -65,9 +65,10 @@ tidy: ## Update modules.
 verify: generate manifests tidy ## Run verification checks.
 	git diff --exit-code
 
+UNIT_TEST_DIRS=$(shell go list ./... | grep -v /test/)
 .PHONY: test
-test: manifests generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
+unit: envtest ## Run tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -count=1 -short $(UNIT_TEST_DIRS)
 
 ##@ Build
 
