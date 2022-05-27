@@ -1,4 +1,3 @@
-
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -54,6 +53,14 @@ fmt: ## Run go fmt against code.
 .PHONY: vet
 vet: ## Run go vet against code.
 	go vet ./...
+
+.PHONY: tidy
+tidy: ## Update modules.
+	go mod tidy
+
+.PHONY: verify
+verify: generate manifests tidy ## Run verification checks.
+	git diff --exit-code
 
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests.

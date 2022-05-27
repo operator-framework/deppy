@@ -1,0 +1,37 @@
+run:
+  # Default timeout is 1m, up to give more room
+  timeout: 4m
+
+linters:
+  enable:
+  - asciicheck
+  - deadcode
+  - depguard
+  - errorlint
+  - gofmt
+  - goimports
+  - importas
+  - prealloc
+  - nestif
+  - revive
+  - misspell
+  - stylecheck
+  - tparallel
+  - unconvert
+  - unparam
+  - whitespace
+
+linters-settings:
+  importas:
+    alias:
+    - pkg: k8s.io/api/core/v1
+      alias: corev1
+    - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+      alias: metav1
+    - pkg: k8s.io/apimachinery/pkg/api/errors
+      alias: apierrors
+  goimports:
+    local-prefixes: github.com/operator-framework/deppy
+
+output:
+  format: tab
