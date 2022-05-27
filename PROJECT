@@ -1,0 +1,6 @@
+domain: deppy.io
+layout:
+- go.kubebuilder.io/v3
+projectName: deppy
+repo: github.com/operator-framework/deppy
+version: "3"
