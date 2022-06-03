@@ -61,6 +61,10 @@ vet: ## Run go vet against code.
 tidy: ## Update modules.
 	go mod tidy
 
+.PHONY: lint
+lint: golangci-lint ## Run golangci-lint linter checks.
+	$(GOLANGCI_LINT) run
+
 .PHONY: verify
 verify: generate manifests tidy ## Run verification checks.
 	git diff --exit-code
@@ -131,6 +135,7 @@ CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 KIND ?= $(LOCALBIN)/kind
 GINKGO ?= $(LOCALBIN)/ginkgo
+GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v3.8.7
@@ -161,3 +166,8 @@ $(KIND): $(LOCALBIN)
 ginkgo: $(GINKGO)
 $(GINKGO): $(LOCALBIN) ## Download ginkgo locally if necessary.
 	GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.4
+
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT)
+$(GOLANGCI_LINT): $(LOCALBIN) ## Download golangci-lint locally if necessary.
+	GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.45.2
