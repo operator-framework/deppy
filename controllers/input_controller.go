@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	corev1alpha1 "github.com/operator-framework/deppy/api/v1alpha1"
+	deppyv1alpha1 "github.com/operator-framework/deppy/api/v1alpha1"
 )
 
 // InputReconciler reconciles a Input object
@@ -57,6 +57,6 @@ func (r *InputReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 // SetupWithManager sets up the controller with the Manager.
 func (r *InputReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&corev1alpha1.Input{}).
+		For(&deppyv1alpha1.Input{}).
 		Complete(r)
 }
