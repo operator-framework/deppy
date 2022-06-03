@@ -17,25 +17,27 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"encoding/json"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // InputSpec defines the desired state of Input
 type InputSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	InputClassName string       `json:"inputClassName"`
+	Constraints    []Constraint `json:"constraints,omitempty"`
+}
 
-	// Foo is an example field of Input. Edit input_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+type Constraint struct {
+	Type string `json:"type"`
+	//+kubebuilder:validation:Schemaless
+	//+kubebuilder:validation:XPreserveUnknownFields
+	Value json.RawMessage `json:"value"`
 }
 
 // InputStatus defines the observed state of Input
 type InputStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
