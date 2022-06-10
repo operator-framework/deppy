@@ -48,6 +48,7 @@ graph TD
 Additionally, the user would like to pin the version of A to v0.1.0.
 
 **Entities and Constraints passed to Deppy**
+
 Entities:
 
 - A
@@ -60,6 +61,7 @@ Constraints:
 - B depends on D
 
 **Deppy Output**
+
 Resolution Set:
 
 - A v0.1.0
@@ -80,6 +82,7 @@ graph TD
 Additionally, the user would like to pin the version of A to v0.1.0.
 
 **Entities and Constraints passed to Deppy**
+
 Entities:
 
 - A
@@ -92,6 +95,7 @@ Constraints:
 - B latest depends on C v0.2.0
 
 **Deppy Output**
+
 Resolution Set:
 
 - Unable to resolve because A v0.1.0 requires C v0.1.0, which conflicts with
