@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,13 +24,21 @@ import (
 type InputSpec struct {
 	InputClassName string       `json:"inputClassName"`
 	Constraints    []Constraint `json:"constraints,omitempty"`
+	Properties     []Property   `json:"properties,omitempty"`
 }
 
 type Constraint struct {
 	Type string `json:"type"`
 	//+kubebuilder:validation:Schemaless
 	//+kubebuilder:validation:XPreserveUnknownFields
-	Value json.RawMessage `json:"value"`
+	Value map[string]string `json:"value"`
+}
+
+type Property struct {
+	Type string `json:"type"`
+	//+kubebuilder:validation:Schemaless
+	//+kubebuilder:validation:XPreserveUnknownFields
+	Value map[string]string `json:"value"`
 }
 
 // InputStatus defines the observed state of Input

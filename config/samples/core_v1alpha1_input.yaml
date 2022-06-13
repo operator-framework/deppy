@@ -3,4 +3,15 @@ kind: Input
 metadata:
   name: input-sample
 spec:
-  # TODO(user): Add fields here
+  inputClassName: "sub"
+  constraints:
+    - type: deppy.package.required
+      value:
+        packageName: baz
+        versionRange: '>=1.0.0'
+  properties:
+    - type: deppy.gvk.provided
+      value:
+        group: operators.coreos.com
+        version: v1
+        kind: foo
