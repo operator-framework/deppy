@@ -415,7 +415,7 @@ func (constraint hardcodedSAT) apply(c *logic.C, lm *litMapping, subject Identif
 }
 
 func (constraint hardcodedSAT) order() []Identifier {
-	return nil
+	return []Identifier{"x3", "x2", "x1"}
 }
 
 func (constraint hardcodedSAT) anchor() bool {
@@ -441,7 +441,7 @@ func (constraint hardcodedUNSAT) apply(c *logic.C, lm *litMapping, subject Ident
 }
 
 func (constraint hardcodedUNSAT) order() []Identifier {
-	return nil
+	return []Identifier{"x3", "x2", "x1"}
 }
 
 func (constraint hardcodedUNSAT) anchor() bool {
