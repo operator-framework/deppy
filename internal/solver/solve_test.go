@@ -5,6 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/go-air/gini"
+	"github.com/go-air/gini/logic"
+	"github.com/go-air/gini/z"
 	"reflect"
 	"sort"
 	"testing"
@@ -295,6 +298,35 @@ func TestSolve(t *testing.T) {
 			},
 			Installed: []Identifier{"a", "x1", "y1"},
 		},
+		{
+			Name: "hardcodedSAT complex constraint is evaluated correctly",
+			Variables: []Variable{
+				variable("a", Mandatory(), &hardcodedSAT{}),
+				variable("x1"),
+				variable("x2"),
+				variable("x3"),
+			},
+			Installed: []Identifier{"a", "x3"},
+		},
+		{
+			Name: "hardcodedUNSAT complex constraint is evaluated correctly",
+			Variables: []Variable{
+				variable("a", Mandatory(), &hardcodedUNSAT{}),
+				variable("x1"),
+				variable("x2"),
+				variable("x3"),
+			},
+			Error: NotSatisfiable{
+				{
+					Variable:   variable("a", Mandatory(), &hardcodedUNSAT{}),
+					Constraint: Mandatory(),
+				},
+				{
+					Variable:   variable("a", Mandatory(), &hardcodedUNSAT{}),
+					Constraint: &hardcodedUNSAT{},
+				},
+			},
+		},
 	} {
 		t.Run(tt.Name, func(t *testing.T) {
 			assert := assert.New(t)
@@ -362,4 +394,94 @@ func TestDuplicateIdentifier(t *testing.T) {
 		variable("a"),
 	}))
 	assert.Equal(t, DuplicateIdentifier("a"), err)
+}
+
+type hardcodedSAT struct{}
+
+func (constraint hardcodedSAT) String(subject Identifier) string {
+	return fmt.Sprintf("%s requires all of {dependency(x3,x1), dependency(x3,x2)}", subject)
+}
+
+func (constraint hardcodedSAT) apply(c *logic.C, lm *litMapping, subject Identifier) z.Lit {
+	subLit := lm.LitOf(subject)
+
+	x1 := lm.LitOf("x1")
+	x2 := lm.LitOf("x2")
+	x3 := lm.LitOf("x3")
+
+	dep := c.Or(subLit.Not(), c.Ands(c.Or(x3, x2), c.Or(x3, x1)))
+	fmt.Printf("!%s || ((x3 || x2) && (x3 || x1))\n", subject)
+	return dep
+}
+
+func (constraint hardcodedSAT) order() []Identifier {
+	return nil
+}
+
+func (constraint hardcodedSAT) anchor() bool {
+	return false
+}
+
+type hardcodedUNSAT struct{}
+
+func (constraint hardcodedUNSAT) String(subject Identifier) string {
+	return fmt.Sprintf("%s requires all of {dependency(x3,x1), dependency(x3,x2), FALSE}", subject)
+}
+
+func (constraint hardcodedUNSAT) apply(c *logic.C, lm *litMapping, subject Identifier) z.Lit {
+	subLit := lm.LitOf(subject)
+
+	x1 := lm.LitOf("x1")
+	x2 := lm.LitOf("x2")
+	x3 := lm.LitOf("x3")
+
+	dep := c.Or(subLit.Not(), c.Ands(c.Or(x3, x2), c.Or(x3, x1), c.F))
+	fmt.Printf("!%s || ((x3 || x2) && (x3 || x1) && FALSE)\n", subject)
+	return dep
+}
+
+func (constraint hardcodedUNSAT) order() []Identifier {
+	return nil
+}
+
+func (constraint hardcodedUNSAT) anchor() bool {
+	return false
+}
+
+func TestComplexSAT(t *testing.T) {
+	l1 := logic.NewC()
+	a, x1, x2, x3 := l1.Lit(), l1.Lit(), l1.Lit(), l1.Lit()
+
+	x3Orx1 := l1.Or(x3, x1)
+	x3Orx2 := l1.Or(x3, x2)
+	aDep := l1.Or(a.Not(), l1.Ands(x3Orx2, x3Orx1))
+
+	// encode to sat
+	s := gini.New()
+	l1.ToCnf(s)
+
+	s.Assume(a, aDep)
+
+	if s.Solve() != 1 {
+		t.Fatalf("expected sat")
+	}
+}
+
+func TestComplexUNSAT(t *testing.T) {
+	l1 := logic.NewC()
+	a, x1, x2, x3 := l1.Lit(), l1.Lit(), l1.Lit(), l1.Lit()
+
+	x3Orx1 := l1.Or(x3, x1)
+	x3Orx2 := l1.Or(x3, x2)
+	aDep := l1.Or(a.Not(), l1.Ands(x3Orx2, x3Orx1, l1.F))
+
+	// encode to sat
+	s := gini.New()
+	l1.ToCnf(s)
+
+	s.Assume(a, aDep)
+
+	if s.Solve() != -1 {
+		t.Fatalf("expected unsat")
+	}
 }
