@@ -31,14 +31,14 @@ type Constraint struct {
 	Type string `json:"type"`
 	//+kubebuilder:validation:Schemaless
 	//+kubebuilder:validation:XPreserveUnknownFields
-	Value map[string]string `json:"value"`
+	Value map[string]string `json:"value,omitempty"`
 }
 
 type Property struct {
 	Type string `json:"type"`
 	//+kubebuilder:validation:Schemaless
 	//+kubebuilder:validation:XPreserveUnknownFields
-	Value map[string]string `json:"value"`
+	Value map[string]string `json:"value,omitempty"`
 }
 
 // InputStatus defines the observed state of Input

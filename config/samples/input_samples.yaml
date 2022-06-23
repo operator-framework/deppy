@@ -1,0 +1,133 @@
+---
+apiVersion: core.deppy.io/v1alpha1
+kind: Input
+metadata:
+  name: install-alpha
+spec:
+  inputClassName: classname
+  constraints:
+    - type: Mandatory
+    - type: RequireKeyValue
+      value:
+        key: Package
+        value: alpha
+---
+apiVersion: core.deppy.io/v1alpha1
+kind: Input
+metadata:
+  name: global-unique-package-constraint
+spec:
+  inputClassName: classname
+  constraints:
+    - type: Mandatory
+    - type: Unique
+      value:
+        key: Package
+---
+apiVersion: core.deppy.io/v1alpha1
+kind: Input
+metadata:
+  name: alpha-v0.1.0
+spec:
+  inputClassName: classname
+  properties:
+    - type: Package
+      value:
+        Package: alpha
+        Version: 0.1.0
+  constraints:
+    - type: ConflictPackage
+      value:
+        packageName: gamma
+        versionRange: ">=0.2.0"
+    - type: RequirePackage
+      value:
+        packageName: beta
+        versionRange: ">0.1.0"
+    - type: RequireFilterCEL
+      value:
+        filterFunc: |
+           proptype == "Package" && (has(value.Package) && value['Package'] == "beta") && (has(value.Version) && (value['Version'] == "0.2.0" || value['Version'] == "0.3.0"))   
+---
+apiVersion: core.deppy.io/v1alpha1
+kind: Input
+metadata:
+  name: beta-v0.1.0
+spec:
+  inputClassName: classname
+  properties:
+    - type: Package
+      value:
+        Package: beta
+        Version: 0.1.0
+  constraints:
+    - type: RequireKeyValue
+      value:
+        key: Package
+        value: gamma
+---
+apiVersion: core.deppy.io/v1alpha1
+kind: Input
+metadata:
+  name: beta-v0.2.0
+spec:
+  inputClassName: classname
+  properties:
+    - type: Package
+      value:
+        Package: beta
+        Version: 0.2.0
+  constraints:
+    - type: RequirePackage
+      value:
+        packageName: gamma
+        versionRange: "0.2.0"
+---
+apiVersion: core.deppy.io/v1alpha1
+kind: Input
+metadata:
+  name: beta-v0.3.0
+spec:
+  inputClassName: classname
+  properties:
+    - type: Package
+      value:
+        Package: beta
+        Version: 0.3.0
+---
+apiVersion: core.deppy.io/v1alpha1
+kind: Input
+metadata:
+  name: gamma-v0.1.0
+spec:
+  inputClassName: classname
+  properties:
+    - type: Package
+      value:
+        Package: gamma
+        Version: 0.1.0
+---
+apiVersion: core.deppy.io/v1alpha1
+kind: Input
+metadata:
+  name: gamma-v0.2.0
+spec:
+  inputClassName: classname
+  properties:
+    - type: Package
+      value:
+        Package: gamma
+        Version: 0.2.0
+---
+apiVersion: core.deppy.io/v1alpha1
+kind: Input
+metadata:
+  name: gamma-v0.3.0
+spec:
+  inputClassName: classname
+  properties:
+    - type: Package
+      value:
+        Package: gamma
+        Version: 0.3.0
+
