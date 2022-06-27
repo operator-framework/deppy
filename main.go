@@ -79,8 +79,9 @@ func main() {
 	}
 
 	if err = (&controllers.InputReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		ConstraintMapper: controllers.InitConstraintMapper(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Input")
 		os.Exit(1)
