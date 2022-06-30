@@ -4,7 +4,7 @@
 export IMAGE_REPO ?= quay.io/operator-framework/deppy
 export IMAGE_TAG ?= latest
 IMAGE?=$(IMAGE_REPO):$(IMAGE_TAG)
-ENVTEST_K8S_VERSION = 1.22 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+ENVTEST_K8S_VERSION = 1.24 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 BIN_DIR ?= bin
 CONTAINER_RUNTIME ?= docker
 KIND_CLUSTER_NAME ?= deppy
@@ -91,8 +91,8 @@ test: test-unit test-e2e ## Run the tests
 
 UNIT_TEST_DIRS=$(shell go list ./... | grep -v /test/)
 .PHONY: test
-test-unit: envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -count=1 -short $(UNIT_TEST_DIRS)
+test-unit: setup-envtest ## Run tests.
+	KUBEBUILDER_ASSETS="$(shell $(SETUP_ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -count=1 -short $(UNIT_TEST_DIRS)
 
 FOCUS := $(if $(TEST),-v -focus "$(TEST)")
 test-e2e: ginkgo
