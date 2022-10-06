@@ -30,10 +30,6 @@ linters-settings:
       alias: metav1
     - pkg: k8s.io/apimachinery/pkg/api/errors
       alias: apierrors
-    - pkg: github.com/operator-framework/rukpak/api/v1alpha1
-      alias: rukpakv1alpha1
-    - pkg: github.com/operator-framework/deppy/api/v1alpha1
-      alias: deppyv1alpha1
   goimports:
     local-prefixes: github.com/operator-framework/deppy
 
