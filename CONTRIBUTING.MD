@@ -8,7 +8,7 @@ to help deppy contributors.
 ## Communication
 
 - Email: [operator-framework-olm-dev](mailto:operator-framework-olm-dev@googlegroups.com)
-- Slack: [#rukpak-dev](https://kubernetes.slack.com/archives/C038B7MF75M)
+- Slack: [#deppy-dev](https://kubernetes.slack.com/archives/C038B7MF75M)
 - Working Group: [olm-wg](https://groups.google.com/g/operator-framework-olm-dev)
 
 ## Getting started
