@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/go-air/gini"
@@ -15,7 +16,7 @@ var ErrIncomplete = errors.New("cancelled before a solution could be found")
 
 // NotSatisfiable is an error composed of a minimal set of applied
 // constraints that is sufficient to make a solution impossible.
-type NotSatisfiable []AppliedConstraint
+type NotSatisfiable []Constraint
 
 func (e NotSatisfiable) Error() string {
 	const msg = "constraints not satisfiable"
@@ -26,11 +27,12 @@ func (e NotSatisfiable) Error() string {
 	for i, a := range e {
 		s[i] = a.String()
 	}
+	sort.Strings(s)
 	return fmt.Sprintf("%s: %s", msg, strings.Join(s, ", "))
 }
 
 type Solver interface {
-	Solve(context.Context) ([]Variable, error)
+	Solve(context.Context) ([]Identifier, error)
 }
 
 type solver struct {
@@ -46,11 +48,11 @@ const (
 	unknown       = 0
 )
 
-// Solve takes a slice containing all Variables and returns a slice
-// containing only those Variables that were selected for
+// Solve takes a slice containing all Entities and returns a slice
+// containing only those Entities that were selected for
 // installation. If no solution is possible, or if the provided
 // Context times out or is cancelled, an error is returned.
-func (s *solver) Solve(ctx context.Context) (result []Variable, err error) {
+func (s *solver) Solve(ctx context.Context) (result []Identifier, err error) {
 	defer func() {
 		// This likely indicates a bug, so discard whatever
 		// return values were produced.
@@ -64,7 +66,7 @@ func (s *solver) Solve(ctx context.Context) (result []Variable, err error) {
 	s.litMap.AddConstraints(s.g)
 
 	// collect literals of all mandatory variables to assume as a baseline
-	assumptions := []z.Lit{}
+	var assumptions []z.Lit
 	for _, anchor := range s.litMap.AnchorIdentifiers() {
 		assumptions = append(assumptions, s.litMap.LitOf(anchor))
 	}
@@ -104,7 +106,7 @@ func (s *solver) Solve(ctx context.Context) (result []Variable, err error) {
 		for w := 0; w <= cs.N(); w++ {
 			s.g.Assume(cs.Leq(w))
 			if s.g.Solve() == satisfiable {
-				return s.litMap.Variables(s.g), nil
+				return s.litMap.Selection(s.g), nil
 			}
 		}
 		// Something is wrong if we can't find a model anymore
@@ -129,10 +131,10 @@ func New(options ...Option) (Solver, error) {
 
 type Option func(s *solver) error
 
-func WithInput(input []Variable) Option {
+func WithInput(constraints []Constraint) Option {
 	return func(s *solver) error {
 		var err error
-		s.litMap, err = newLitMapping(input)
+		s.litMap, err = newLitMapping(constraints)
 		return err
 	}
 }

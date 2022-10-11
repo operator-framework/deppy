@@ -56,10 +56,10 @@ func (h *search) PushGuess() {
 		return
 	}
 
-	variable := h.lits.VariableOf(g.m)
-	for _, constraint := range variable.Constraints() {
+	constrs := h.lits.ConstraintsFor(g.m)
+	for _, constr := range constrs {
 		var ms []z.Lit
-		for _, dependency := range constraint.order() {
+		for _, dependency := range constr.order() {
 			ms = append(ms, h.lits.LitOf(dependency))
 		}
 		if len(ms) > 0 {
@@ -202,16 +202,16 @@ func (h *search) Do(ctx context.Context, anchors []z.Lit) (int, []z.Lit, map[z.L
 	return result, lits, set
 }
 
-func (h *search) Variables() []Variable {
-	result := make([]Variable, 0, len(h.guesses))
+func (h *search) Identifiers() []Identifier {
+	result := make([]Identifier, 0, len(h.guesses))
 	for _, g := range h.guesses {
 		if g.m != z.LitNull {
-			result = append(result, h.lits.VariableOf(g.candidates[g.index]))
+			result = append(result, h.lits.IdentifierOf(g.candidates[g.index]))
 		}
 	}
 	return result
 }
 
-func (h *search) Conflicts() []AppliedConstraint {
+func (h *search) Conflicts() []Constraint {
 	return h.lits.Conflicts(h.s)
 }

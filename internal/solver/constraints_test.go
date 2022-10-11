@@ -16,20 +16,20 @@ func TestOrder(t *testing.T) {
 	for _, tt := range []tc{
 		{
 			Name:       "mandatory",
-			Constraint: Mandatory(),
+			Constraint: Mandatory("a"),
 		},
 		{
 			Name:       "prohibited",
-			Constraint: Prohibited(),
+			Constraint: Prohibited("b"),
 		},
 		{
 			Name:       "dependency",
 			Constraint: Dependency("a", "b", "c"),
-			Expected:   []Identifier{"a", "b", "c"},
+			Expected:   []Identifier{"b", "c"},
 		},
 		{
 			Name:       "conflict",
-			Constraint: Conflict("a"),
+			Constraint: Conflict("a", "b"),
 		},
 	} {
 		t.Run(tt.Name, func(t *testing.T) {

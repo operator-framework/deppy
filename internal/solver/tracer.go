@@ -6,8 +6,8 @@ import (
 )
 
 type SearchPosition interface {
-	Variables() []Variable
-	Conflicts() []AppliedConstraint
+	Identifiers() []Identifier
+	Conflicts() []Constraint
 }
 
 type Tracer interface {
@@ -25,10 +25,10 @@ type LoggingTracer struct {
 
 func (t LoggingTracer) Trace(p SearchPosition) {
 	fmt.Fprintf(t.Writer, "---\nAssumptions:\n")
-	for _, i := range p.Variables() {
-		fmt.Fprintf(t.Writer, "- %s\n", i.Identifier())
+	for _, i := range p.Identifiers() {
+		fmt.Fprintf(t.Writer, "- %s\n", i)
 	}
-	fmt.Fprintf(t.Writer, "Conflicts:\n")
+	fmt.Fprintf(t.Writer, "Conflict:\n")
 	for _, a := range p.Conflicts() {
 		fmt.Fprintf(t.Writer, "- %s\n", a)
 	}

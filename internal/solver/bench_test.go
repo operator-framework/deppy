@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-var BenchmarkInput = func() []Variable {
+var BenchmarkConstraints = func() []Constraint {
 	const (
 		length      = 256
 		seed        = 9
@@ -22,10 +22,11 @@ var BenchmarkInput = func() []Variable {
 		return Identifier(strconv.Itoa(i))
 	}
 
-	variable := func(i int) TestVariable {
+	input := func(i int) []Constraint {
 		var c []Constraint
+		subject := id(i)
 		if rand.Float64() < pMandatory {
-			c = append(c, Mandatory())
+			c = append(c, Mandatory(subject))
 		}
 		if rand.Float64() < pDependency {
 			n := rand.Intn(nDependency-1) + 1
@@ -37,7 +38,7 @@ var BenchmarkInput = func() []Variable {
 				}
 				d = append(d, id(y))
 			}
-			c = append(c, Dependency(d...))
+			c = append(c, Dependency(subject, d...))
 		}
 		if rand.Float64() < pConflict {
 			n := rand.Intn(nConflict-1) + 1
@@ -46,39 +47,34 @@ var BenchmarkInput = func() []Variable {
 				for y == i {
 					y = rand.Intn(length)
 				}
-				c = append(c, Conflict(id(y)))
+				c = append(c, Conflict(subject, id(y)))
 			}
 		}
-		return TestVariable{
-			identifier:  id(i),
-			constraints: c,
-		}
+		return c
 	}
 
 	rand.Seed(seed)
-	result := make([]Variable, length)
-	for i := range result {
-		result[i] = variable(i)
+	constraints := make([]Constraint, 0)
+	for i := 0; i < length; i++ {
+		constrs := input(i)
+		constraints = append(constraints, constrs...)
 	}
-	return result
+	return constraints
 }()
 
 func BenchmarkSolve(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		s, err := New(WithInput(BenchmarkInput))
+		s, err := New(WithInput(BenchmarkConstraints))
 		if err != nil {
 			b.Fatalf("failed to initialize solver: %s", err)
 		}
-		_, err = s.Solve(context.Background())
-		if err != nil {
-			b.Fatalf("failed to initialize solver: %s", err)
-		}
+		s.Solve(context.Background())
 	}
 }
 
 func BenchmarkNewInput(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_, err := New(WithInput(BenchmarkInput))
+		_, err := New(WithInput(BenchmarkConstraints))
 		if err != nil {
 			b.Fatalf("failed to initialize solver: %s", err)
 		}

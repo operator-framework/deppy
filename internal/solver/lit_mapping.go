@@ -22,94 +22,76 @@ func (inconsistentLitMapping) Error() string {
 }
 
 // litMapping performs translation between the input and output types of
-// Solve (Constraints, Variables, etc.) and the variables that
+// Solve (Constraints, Constraints, etc.) and the variables that
 // appear in the SAT formula.
 type litMapping struct {
-	inorder     []Variable
-	variables   map[z.Lit]Variable
-	lits        map[Identifier]z.Lit
-	constraints map[z.Lit]AppliedConstraint
-	c           *logic.C
-	errs        inconsistentLitMapping
+	inorder              []Constraint
+	constraintsByLiteral map[z.Lit][]Constraint
+	lits                 map[Identifier]z.Lit
+	constraints          map[z.Lit]Constraint
+	c                    *logic.C
+	errs                 inconsistentLitMapping
 }
 
 // newLitMapping returns a new litMapping with its state initialized based on
-// the provided slice of Variables. This includes construction of
-// the translation tables between Variables/Constraints and the
+// the provided slice of Entities. This includes construction of
+// the translation tables between Entities/Constraints and the
 // inputs to the underlying solver.
-func newLitMapping(variables []Variable) (*litMapping, error) {
+func newLitMapping(constraints []Constraint) (*litMapping, error) {
 	d := litMapping{
-		inorder:     variables,
-		variables:   make(map[z.Lit]Variable, len(variables)),
-		lits:        make(map[Identifier]z.Lit, len(variables)),
-		constraints: make(map[z.Lit]AppliedConstraint),
-		c:           logic.NewCCap(len(variables)),
+		inorder:              make([]Constraint, len(constraints)),
+		constraintsByLiteral: make(map[z.Lit][]Constraint, 0),
+		lits:                 make(map[Identifier]z.Lit, 0),
+		constraints:          make(map[z.Lit]Constraint),
+		c:                    logic.NewC(),
 	}
 
-	// First pass to assign lits:
-	for _, variable := range variables {
-		im := d.c.Lit()
-		if _, ok := d.lits[variable.Identifier()]; ok {
-			return nil, DuplicateIdentifier(variable.Identifier())
-		}
-		d.lits[variable.Identifier()] = im
-		d.variables[im] = variable
-	}
+	for i, constraint := range constraints {
+		d.inorder[i] = constraints[i]
 
-	for _, variable := range variables {
-		for _, constraint := range variable.Constraints() {
-			m := constraint.apply(d.c, &d, variable.Identifier())
-			if m == z.LitNull {
-				// This constraint doesn't have a
-				// useful representation in the SAT
-				// inputs.
-				continue
-			}
-
-			d.constraints[m] = AppliedConstraint{
-				Variable:   variable,
-				Constraint: constraint,
-			}
+		m := constraint.apply(d.c, &d)
+		if m == z.LitNull {
+			// This constraint doesn't have a
+			// useful representation in the SAT
+			// inputs.
+			continue
 		}
+
+		d.constraints[m] = constraint
+		litForVar := d.lits[constraint.Subject()]
+		d.constraintsByLiteral[litForVar] = append(d.constraintsByLiteral[litForVar], constraint)
 	}
 
 	return &d, nil
 }
 
-// LitOf returns the positive literal corresponding to the Variable
+// LitOf returns the positive literal corresponding to the *DeppyEntity
 // with the given Identifier.
 func (d *litMapping) LitOf(id Identifier) z.Lit {
-	m, ok := d.lits[id]
-	if ok {
-		return m
+	_, ok := d.lits[id]
+	if !ok {
+		d.lits[id] = d.c.Lit()
 	}
-	d.errs = append(d.errs, fmt.Errorf("variable %q referenced but not provided", id))
-	return z.LitNull
+	return d.lits[id]
 }
 
-// VariableOf returns the Variable corresponding to the provided
-// literal, or a zeroVariable if no such Variable exists.
-func (d *litMapping) VariableOf(m z.Lit) Variable {
-	i, ok := d.variables[m]
+func (d *litMapping) ConstraintsFor(m z.Lit) []Constraint {
+	constrs, ok := d.constraintsByLiteral[m]
 	if ok {
-		return i
+		return constrs
 	}
-	d.errs = append(d.errs, fmt.Errorf("no variable corresponding to %s", m))
-	return zeroVariable{}
+	return nil
 }
 
 // ConstraintOf returns the constraint application corresponding to
 // the provided literal, or a zeroConstraint if no such constraint
 // exists.
-func (d *litMapping) ConstraintOf(m z.Lit) AppliedConstraint {
+func (d *litMapping) ConstraintOf(m z.Lit) Constraint {
 	if a, ok := d.constraints[m]; ok {
 		return a
 	}
 	d.errs = append(d.errs, fmt.Errorf("no constraint corresponding to %s", m))
-	return AppliedConstraint{
-		Variable:   zeroVariable{},
-		Constraint: zeroConstraint{},
-	}
+	return ZeroConstraint
 }
 
 // Error returns a single error value that is an aggregation of all
@@ -134,8 +116,10 @@ func (d *litMapping) AddConstraints(g inter.S) {
 }
 
 func (d *litMapping) AssumeConstraints(s inter.S) {
-	for m := range d.constraints {
-		s.Assume(m)
+	for m, c := range d.constraints {
+		if !c.anchor() {
+			s.Assume(m)
+		}
 	}
 }
 
@@ -158,50 +142,56 @@ func (d *litMapping) CardinalityConstrainer(g inter.Adder, ms []z.Lit) *logic.Ca
 }
 
 // AnchorIdentifiers returns a slice containing the Identifiers of
-// every Variable with at least one "anchor" constraint, in the
+// every variable with at least one "anchor" constraint, in the
 // order they appear in the input.
 func (d *litMapping) AnchorIdentifiers() []Identifier {
 	var ids []Identifier
-	for _, variable := range d.inorder {
-		for _, constraint := range variable.Constraints() {
-			if constraint.anchor() {
-				ids = append(ids, variable.Identifier())
-				break
-			}
+	for _, c := range d.inorder {
+		if c.anchor() {
+			ids = append(ids, c.Subject())
 		}
 	}
+
 	return ids
 }
 
-func (d *litMapping) Variables(g inter.S) []Variable {
-	var result []Variable
-	for _, i := range d.inorder {
-		if g.Value(d.LitOf(i.Identifier())) {
-			result = append(result, i)
-		}
-	}
-	return result
-}
-
 func (d *litMapping) Lits(dst []z.Lit) []z.Lit {
-	if cap(dst) < len(d.inorder) {
-		dst = make([]z.Lit, 0, len(d.inorder))
+	if cap(dst) < len(d.lits) {
+		dst = make([]z.Lit, 0, len(d.lits))
 	}
 	dst = dst[:0]
-	for _, i := range d.inorder {
-		m := d.LitOf(i.Identifier())
-		dst = append(dst, m)
+	for _, lit := range d.lits {
+		dst = append(dst, lit)
 	}
 	return dst
 }
 
-func (d *litMapping) Conflicts(g inter.Assumable) []AppliedConstraint {
+func (d *litMapping) Conflicts(g inter.Assumable) []Constraint {
 	whys := g.Why(nil)
-	as := make([]AppliedConstraint, 0, len(whys))
+	as := make([]Constraint, 0, len(whys))
 	for _, why := range whys {
 		if a, ok := d.constraints[why]; ok {
 			as = append(as, a)
 		}
 	}
 	return as
+}
+
+func (d *litMapping) Selection(g inter.S) []Identifier {
+	selection := make([]Identifier, 0)
+	for id, lit := range d.lits {
+		if g.Value(lit) {
+			selection = append(selection, id)
+		}
+	}
+	return selection
+}
+
+func (d *litMapping) IdentifierOf(lit z.Lit) Identifier {
+	for id, literal := range d.lits {
+		if literal == lit {
+			return id
+		}
+	}
+	return Identifier("nil")
 }
