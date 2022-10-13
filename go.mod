@@ -1,6 +1,6 @@
 module github.com/operator-framework/deppy
 
-go 1.18
+go 1.19
 
 require (
 	github.com/go-air/gini v1.0.4
