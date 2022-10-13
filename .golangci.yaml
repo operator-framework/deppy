@@ -5,7 +5,6 @@ run:
 linters:
   enable:
   - asciicheck
-  - deadcode
   - depguard
   - errorlint
   - gofmt
