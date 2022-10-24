@@ -3,6 +3,8 @@ package root
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/operator-framework/deppy/cmd/sudoku"
+
 	"github.com/operator-framework/deppy/cmd/dimacs"
 )
 
@@ -16,6 +18,7 @@ For more information visit https://github.com/operator-framework/deppy`,
 
 	// add sub-commands
 	rootCmd.AddCommand(dimacs.NewDimacsCommand())
+	rootCmd.AddCommand(sudoku.NewSudokuCommand())
 
 	return rootCmd
 }
