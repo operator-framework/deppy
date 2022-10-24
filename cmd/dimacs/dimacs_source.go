@@ -1,0 +1,24 @@
+package dimacs
+
+import (
+	"github.com/operator-framework/deppy/internal/entitysource"
+)
+
+var _ entitysource.EntitySource = &DimacsEntitySource{}
+
+type DimacsEntitySource struct {
+	*entitysource.CacheQuerier
+	entitysource.NoContentSource
+}
+
+func NewDimacsEntitySource(dimacs *Dimacs) *DimacsEntitySource {
+	entities := make(map[entitysource.EntityID]entitysource.Entity, len(dimacs.Variables()))
+	for _, variable := range dimacs.Variables() {
+		id := entitysource.EntityID(variable)
+		entities[id] = *entitysource.NewEntity(entitysource.EntityID(variable), nil)
+	}
+	return &DimacsEntitySource{
+		CacheQuerier:    entitysource.NewCacheQuerier(entities),
+		NoContentSource: entitysource.NoContentSource{},
+	}
+}
