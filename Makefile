@@ -88,6 +88,10 @@ build-container: export GOOS=linux
 build-container: build ## Builds provisioner container image locally
 	$(CONTAINER_RUNTIME) build -f Dockerfile -t $(IMG) $(BIN_DIR)
 
+.PHONY: cli
+cli: ## Build deppy cli
+	CGO_ENABLED=0 go build -o bin/deppy cmd/main.go
+
 ##@ Deployment
 
 ifndef ignore-not-found
