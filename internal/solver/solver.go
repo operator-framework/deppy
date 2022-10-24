@@ -10,6 +10,9 @@ import (
 
 var _ Solver = &DeppySolver{}
 
+// TODO: should be disambiguate between solver errors due to constraints
+//       and other generic errors (e.g. entity source not reachable, etc.)
+
 // Solution is returned by the Solver when a solution could be found
 // it can be queried by EntityID to see if the entity was selected (true) or not (false)
 // by the solver
