@@ -101,6 +101,10 @@ func Prohibited() Constraint {
 	return prohibited{}
 }
 
+func Not() Constraint {
+	return prohibited{}
+}
+
 type dependency []Identifier
 
 func (constraint dependency) String(subject Identifier) string {
@@ -200,5 +204,47 @@ func AtMost(n int, ids ...Identifier) Constraint {
 	return leq{
 		ids: ids,
 		n:   n,
+	}
+}
+
+type or struct {
+	operand          Identifier
+	isSubjectNegated bool
+	isOperandNegated bool
+}
+
+func (constraint or) String(subject Identifier) string {
+	return fmt.Sprintf("%s is prohibited", subject)
+}
+
+func (constraint or) apply(c *logic.C, lm *litMapping, subject Identifier) z.Lit {
+	subjectLit := lm.LitOf(subject)
+	if constraint.isSubjectNegated {
+		subjectLit = subjectLit.Not()
+	}
+	operandLit := lm.LitOf(constraint.operand)
+	if constraint.isOperandNegated {
+		operandLit = operandLit.Not()
+	}
+	return c.Or(subjectLit, operandLit)
+}
+
+func (constraint or) order() []Identifier {
+	return nil
+}
+
+func (constraint or) anchor() bool {
+	return false
+}
+
+// Or returns a constraints in the form subject OR identifier
+// if isSubjectNegated = true, ~subject OR identifier
+// if isOperandNegated = true, subject OR ~identifier
+// if both are true: ~subject OR ~identifier
+func Or(identifier Identifier, isSubjectNegated bool, isOperandNegated bool) Constraint {
+	return or{
+		operand:          identifier,
+		isSubjectNegated: isSubjectNegated,
+		isOperandNegated: isOperandNegated,
 	}
 }
