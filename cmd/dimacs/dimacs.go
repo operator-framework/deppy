@@ -80,7 +80,7 @@ func NewDimacs(dimacsReader io.Reader) (*Dimacs, error) {
 			if clause[len(clause)-1] != "0" {
 				return nil, fmt.Errorf("invalid clause (%s): does not end with 0", line)
 			}
-			for _, lit := range clause {
+			for _, lit := range clause[:len(clause)-1] {
 				litInt, err := strconv.Atoi(lit)
 				if err != nil {
 					return nil, fmt.Errorf("invalid clause (%s): %s is not a number", line, lit)
