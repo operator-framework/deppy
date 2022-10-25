@@ -2,6 +2,7 @@ package dimacs
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -33,7 +34,7 @@ func NewDimacs(dimacsReader io.Reader) (*Dimacs, error) {
 	variableSet := map[string]struct{}{}
 	numVariables := 0
 	numClauses := 0
-	var clauses []string = nil
+	var clauses []string
 
 	commentLine := regexp.MustCompile(`^c\s*.*`)
 	headerLine := regexp.MustCompile(`^p cnf\s+\d+\s+\d+\s*`)
@@ -43,10 +44,10 @@ func NewDimacs(dimacsReader io.Reader) (*Dimacs, error) {
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
-			return nil, fmt.Errorf("error reading dimacs data: %s", err)
+			return nil, fmt.Errorf("error reading dimacs data: %w", err)
 		}
 		line = strings.TrimSpace(line)
 		line = strings.Trim(line, "\n")
@@ -54,8 +55,10 @@ func NewDimacs(dimacsReader io.Reader) (*Dimacs, error) {
 		// ignore comments
 		if commentLine.MatchString(line) {
 			continue
-			// capture header
-		} else if headerLine.MatchString(line) {
+		}
+
+		// capture header
+		if headerLine.MatchString(line) {
 			line = cleanInput.ReplaceAllString(line, " ")
 			problem := strings.Split(line, " ")
 			if len(problem) != 4 {
@@ -70,8 +73,12 @@ func NewDimacs(dimacsReader io.Reader) (*Dimacs, error) {
 				return nil, fmt.Errorf("invalid number (%s) in statement (%s)", problem[3], line)
 			}
 			clauses = make([]string, 0, numClauses)
-			// capture clauses
-		} else if clauseLine.MatchString(line) {
+			continue
+		}
+
+		// capture clauses
+		if clauseLine.MatchString(line) {
+			// allocated on the header line
 			if clauses == nil {
 				return nil, fmt.Errorf("invalid dimacs format: missing header 'p cnf <variable> <clauses>'")
 			}
@@ -80,26 +87,24 @@ func NewDimacs(dimacsReader io.Reader) (*Dimacs, error) {
 			if clause[len(clause)-1] != "0" {
 				return nil, fmt.Errorf("invalid clause (%s): does not end with 0", line)
 			}
-			for _, lit := range clause[:len(clause)-1] {
-				litInt, err := strconv.Atoi(lit)
-				if err != nil {
-					return nil, fmt.Errorf("invalid clause (%s): %s is not a number", line, lit)
-				}
-				if litInt > numVariables || -1*litInt < -1*numVariables {
-					return nil, fmt.Errorf("invalid caluse (%s): %s is not a valid variable", line, lit)
-				}
 
-				// remember variables for later
-				if litInt < 0 {
-					lit = strconv.Itoa(-1 * litInt)
-				}
-				variableSet[lit] = struct{}{}
+			// remove zero at the end
+			clause = clause[:len(clause)-1]
+
+			if err := validateClause(clause, numVariables); err != nil {
+				return nil, err
 			}
-			clauses = append(clauses, strings.Join(clause[:len(clause)-1], " "))
-			// error out if the instruction is invalid
-		} else {
-			return nil, fmt.Errorf("invalid dimacs command: %s", line)
+
+			// remember variables in clause to compare later
+			for _, c := range clause {
+				variableSet[strings.TrimPrefix(c, "-")] = struct{}{}
+			}
+
+			// add clause
+			clauses = append(clauses, strings.Join(clause, " "))
+			continue
 		}
+		return nil, fmt.Errorf("invalid dimacs command: %s", line)
 	}
 
 	if numVariables == 0 || numClauses == 0 || clauses == nil {
@@ -123,4 +128,21 @@ func NewDimacs(dimacsReader io.Reader) (*Dimacs, error) {
 		variables: variables,
 		clauses:   clauses,
 	}, nil
+}
+
+func validateClause(clause []string, numVariables int) error {
+	// check variables
+	for _, lit := range clause {
+		litInt, err := strconv.Atoi(lit)
+		if err != nil {
+			return fmt.Errorf("invalid variable: %s is not a number", lit)
+		}
+		if litInt == 0 {
+			return fmt.Errorf("invalid variable: %s cannot be used", lit)
+		}
+		if litInt > numVariables || litInt < -1*numVariables {
+			return fmt.Errorf("invalid variable: %s is not declared in header", lit)
+		}
+	}
+	return nil
 }

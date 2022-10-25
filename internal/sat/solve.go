@@ -64,9 +64,10 @@ func (s *solver) Solve(ctx context.Context) (result []Variable, err error) {
 	s.litMap.AddConstraints(s.g)
 
 	// collect literals of all mandatory variables to assume as a baseline
-	var assumptions []z.Lit
-	for _, anchor := range s.litMap.AnchorIdentifiers() {
-		assumptions = append(assumptions, s.litMap.LitOf(anchor))
+	anchors := s.litMap.AnchorIdentifiers()
+	assumptions := make([]z.Lit, len(anchors))
+	for i := range anchors {
+		assumptions[i] = s.litMap.LitOf(anchors[i])
 	}
 
 	// assume that all constraints hold

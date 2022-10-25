@@ -30,7 +30,7 @@ type GroupByFunction func(e1 *Entity) []string
 type GroupedEntityList map[string]EntityList
 
 func (g GroupedEntityList) Sort(fn SortFunction) GroupedEntityList {
-	for key, _ := range g {
+	for key := range g {
 		sort.SliceStable(g[key], func(i, j int) bool {
 			return fn(&g[key][i], &g[key][j])
 		})

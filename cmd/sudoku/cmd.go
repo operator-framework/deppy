@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/operator-framework/deppy/internal/constraints"
 	"github.com/operator-framework/deppy/internal/entitysource"
 	"github.com/operator-framework/deppy/internal/solver"
-	"github.com/spf13/cobra"
 )
 
 var Cmd = &cobra.Command{
@@ -39,7 +40,7 @@ func solve() error {
 			for col := 0; col < 9; col++ {
 				found := false
 				for n := 0; n < 9; n++ {
-					id := GetId(row, col, n)
+					id := GetID(row, col, n)
 					if solution[id] {
 						fmt.Printf("%d", n+1)
 						found = true

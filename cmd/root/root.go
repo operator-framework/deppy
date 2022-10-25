@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/operator-framework/deppy/cmd/dimacs"
 	"github.com/operator-framework/deppy/cmd/sudoku"
-	"github.com/spf13/cobra"
 )
 
 func init() {

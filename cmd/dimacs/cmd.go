@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/operator-framework/deppy/internal/constraints"
 	"github.com/operator-framework/deppy/internal/entitysource"
 	"github.com/operator-framework/deppy/internal/solver"
-	"github.com/spf13/cobra"
 )
 
 var Cmd = &cobra.Command{
@@ -34,12 +35,12 @@ func solve(path string) error {
 	// open dimacs file
 	dimacsFile, err := os.Open(path)
 	if err != nil {
-		return fmt.Errorf("error opening dimacs file (%s): %s", path, err)
+		return fmt.Errorf("error opening dimacs file (%s): %w", path, err)
 	}
 
 	dimacs, err := NewDimacs(dimacsFile)
 	if err != nil {
-		return fmt.Errorf("error parsing dimacs file (%s): %s", path, err)
+		return fmt.Errorf("error parsing dimacs file (%s): %w", path, err)
 	}
 
 	// build solver

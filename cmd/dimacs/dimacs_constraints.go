@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-air/gini/logic"
 	"github.com/go-air/gini/z"
+
 	"github.com/operator-framework/deppy/internal/constraints"
 	"github.com/operator-framework/deppy/internal/entitysource"
 	"github.com/operator-framework/deppy/internal/sat"
@@ -57,7 +58,7 @@ func (constraint clauseConstraint) String(_ sat.Identifier) string {
 
 func (constraint clauseConstraint) Apply(c *logic.C, lm *sat.LitMapping, _ sat.Identifier) z.Lit {
 	lits := make([]z.Lit, len(constraint))
-	for i, _ := range constraint {
+	for i := range constraint {
 		if strings.HasPrefix(constraint[i], "-") {
 			lits[i] = lm.LitOf(sat.Identifier(constraint[i][1:])).Not()
 		} else {
