@@ -8,7 +8,7 @@ var _ entitysource.EntitySource = &DimacsEntitySource{}
 
 type DimacsEntitySource struct {
 	*entitysource.CacheQuerier
-	entitysource.NoContentSource
+	entitysource.EntityContentGetter
 }
 
 func NewDimacsEntitySource(dimacs *Dimacs) *DimacsEntitySource {
@@ -18,7 +18,7 @@ func NewDimacsEntitySource(dimacs *Dimacs) *DimacsEntitySource {
 		entities[id] = *entitysource.NewEntity(entitysource.EntityID(variable), nil)
 	}
 	return &DimacsEntitySource{
-		CacheQuerier:    entitysource.NewCacheQuerier(entities),
-		NoContentSource: entitysource.NoContentSource{},
+		CacheQuerier:        entitysource.NewCacheQuerier(entities),
+		EntityContentGetter: entitysource.NoContentSource(),
 	}
 }

@@ -2,10 +2,14 @@ package entitysource
 
 import "context"
 
-var _ EntityContentGetter = &NoContentSource{}
+var _ EntityContentGetter = &noContentSource{}
 
-type NoContentSource struct{}
+type noContentSource struct{}
 
-func (n *NoContentSource) GetContent(_ context.Context, _ EntityID) (interface{}, error) {
+func NoContentSource() EntityContentGetter {
+	return &noContentSource{}
+}
+
+func (n *noContentSource) GetContent(_ context.Context, _ EntityID) (interface{}, error) {
 	return nil, nil
 }

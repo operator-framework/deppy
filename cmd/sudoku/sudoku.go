@@ -16,7 +16,8 @@ var _ entitysource.EntitySource = &Sudoku{}
 var _ constraints.ConstraintGenerator = &Sudoku{}
 
 type Sudoku struct {
-	entities map[entitysource.EntityID]entitysource.Entity
+	*entitysource.CacheQuerier
+	entitysource.EntityContentGetter
 }
 
 func GetId(row int, col int, num int) entitysource.EntityID {
@@ -41,7 +42,8 @@ func NewSudoku() *Sudoku {
 		}
 	}
 	return &Sudoku{
-		entities: entities,
+		CacheQuerier:        entitysource.NewCacheQuerier(entities),
+		EntityContentGetter: entitysource.NoContentSource(),
 	}
 }
 
@@ -133,38 +135,4 @@ func (s Sudoku) GetVariables(ctx context.Context, querier entitysource.EntityQue
 	}
 
 	return inorder, nil
-}
-
-func (s Sudoku) Get(_ context.Context, id entitysource.EntityID) *entitysource.Entity {
-	if entity, ok := s.entities[id]; ok {
-		return &entity
-	}
-	return nil
-}
-
-func (s Sudoku) Filter(ctx context.Context, filter entitysource.Predicate) (entitysource.EntityList, error) {
-	resultSet := entitysource.EntityList{}
-	for _, entity := range s.entities {
-		if filter(&entity) {
-			resultSet = append(resultSet, entity)
-		}
-	}
-	return resultSet, nil
-}
-
-func (s Sudoku) GroupBy(ctx context.Context, fn entitysource.GroupByFunction) (entitysource.GroupedEntityList, error) {
-	panic("not needed")
-}
-
-func (s Sudoku) Iterate(ctx context.Context, fn entitysource.IteratorFunction) error {
-	for _, entity := range s.entities {
-		if err := fn(&entity); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s Sudoku) GetContent(ctx context.Context, id entitysource.EntityID) (interface{}, error) {
-	panic("not needed")
 }
