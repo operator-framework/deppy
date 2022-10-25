@@ -22,8 +22,8 @@ func (c CacheQuerier) Get(_ context.Context, id EntityID) *Entity {
 	return nil
 }
 
-func (c CacheQuerier) Filter(_ context.Context, filter Predicate) (SearchResult, error) {
-	resultSet := SearchResult{}
+func (c CacheQuerier) Filter(_ context.Context, filter Predicate) (EntityList, error) {
+	resultSet := EntityList{}
 	for _, entity := range c.entities {
 		if filter(&entity) {
 			resultSet = append(resultSet, entity)
@@ -32,8 +32,8 @@ func (c CacheQuerier) Filter(_ context.Context, filter Predicate) (SearchResult,
 	return resultSet, nil
 }
 
-func (c CacheQuerier) GroupBy(_ context.Context, fn GroupByFunction) (GroupByResult, error) {
-	resultSet := GroupByResult{}
+func (c CacheQuerier) GroupBy(_ context.Context, fn GroupByFunction) (GroupedEntityList, error) {
+	resultSet := GroupedEntityList{}
 	for _, entity := range c.entities {
 		keys := fn(&entity)
 		for _, key := range keys {

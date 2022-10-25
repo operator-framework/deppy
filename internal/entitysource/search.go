@@ -4,16 +4,16 @@ import "sort"
 
 type Predicate func(entity *Entity) bool
 
-type SearchResult []Entity
+type EntityList []Entity
 
-func (r SearchResult) Sort(fn SortFunction) SearchResult {
+func (r EntityList) Sort(fn SortFunction) EntityList {
 	sort.SliceStable(r, func(i, j int) bool {
 		return fn(&r[i], &r[j])
 	})
 	return r
 }
 
-func (r SearchResult) CollectIds() []EntityID {
+func (r EntityList) CollectIds() []EntityID {
 	ids := make([]EntityID, len(r))
 	for i := range r {
 		ids[i] = r[i].ID()
@@ -27,9 +27,9 @@ type IteratorFunction func(entity *Entity) error
 
 type GroupByFunction func(e1 *Entity) []string
 
-type GroupByResult map[string]SearchResult
+type GroupedEntityList map[string]EntityList
 
-func (g GroupByResult) Sort(fn SortFunction) GroupByResult {
+func (g GroupedEntityList) Sort(fn SortFunction) GroupedEntityList {
 	for key, _ := range g {
 		sort.SliceStable(g[key], func(i, j int) bool {
 			return fn(&g[key][i], &g[key][j])

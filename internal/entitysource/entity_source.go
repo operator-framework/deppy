@@ -6,8 +6,8 @@ import (
 
 type EntityQuerier interface {
 	Get(ctx context.Context, id EntityID) *Entity
-	Filter(ctx context.Context, filter Predicate) (SearchResult, error)
-	GroupBy(ctx context.Context, fn GroupByFunction) (GroupByResult, error)
+	Filter(ctx context.Context, filter Predicate) (EntityList, error)
+	GroupBy(ctx context.Context, fn GroupByFunction) (GroupedEntityList, error)
 	Iterate(ctx context.Context, fn IteratorFunction) error
 }
 
@@ -43,8 +43,8 @@ func (g *Group) Get(ctx context.Context, id EntityID) *Entity {
 	return nil
 }
 
-func (g *Group) Filter(ctx context.Context, filter Predicate) (SearchResult, error) {
-	resultSet := SearchResult{}
+func (g *Group) Filter(ctx context.Context, filter Predicate) (EntityList, error) {
+	resultSet := EntityList{}
 	for _, entitySource := range g.entitySources {
 		rs, err := entitySource.Filter(ctx, filter)
 		if err != nil {
@@ -55,8 +55,8 @@ func (g *Group) Filter(ctx context.Context, filter Predicate) (SearchResult, err
 	return resultSet, nil
 }
 
-func (g *Group) GroupBy(ctx context.Context, fn GroupByFunction) (GroupByResult, error) {
-	resultSet := GroupByResult{}
+func (g *Group) GroupBy(ctx context.Context, fn GroupByFunction) (GroupedEntityList, error) {
+	resultSet := GroupedEntityList{}
 	for _, entitySource := range g.entitySources {
 		rs, err := entitySource.GroupBy(ctx, fn)
 		if err != nil {

@@ -142,8 +142,8 @@ func (s Sudoku) Get(_ context.Context, id entitysource.EntityID) *entitysource.E
 	return nil
 }
 
-func (s Sudoku) Filter(ctx context.Context, filter entitysource.Predicate) (entitysource.SearchResult, error) {
-	resultSet := entitysource.SearchResult{}
+func (s Sudoku) Filter(ctx context.Context, filter entitysource.Predicate) (entitysource.EntityList, error) {
+	resultSet := entitysource.EntityList{}
 	for _, entity := range s.entities {
 		if filter(&entity) {
 			resultSet = append(resultSet, entity)
@@ -152,7 +152,7 @@ func (s Sudoku) Filter(ctx context.Context, filter entitysource.Predicate) (enti
 	return resultSet, nil
 }
 
-func (s Sudoku) GroupBy(ctx context.Context, fn entitysource.GroupByFunction) (entitysource.GroupByResult, error) {
+func (s Sudoku) GroupBy(ctx context.Context, fn entitysource.GroupByFunction) (entitysource.GroupedEntityList, error) {
 	panic("not needed")
 }
 
