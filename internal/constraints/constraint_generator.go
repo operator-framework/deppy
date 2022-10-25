@@ -11,10 +11,9 @@ type ConstraintGenerator interface {
 	GetVariables(ctx context.Context, querier entitysource.EntityQuerier) ([]sat.Variable, error)
 }
 
-type ConstraintBuilder interface {
-	Variables(ctx context.Context, entityQuerier entitysource.EntityQuerier) ([]sat.Variable, error)
-}
+var _ ConstraintGenerator = &DeppyConstraintBuilder{}
 
+// DeppyConstraintBuilder concatenates the constraints created by a group of ConstraintGenerators
 type DeppyConstraintBuilder struct {
 	constraintGenerators []ConstraintGenerator
 }
@@ -25,11 +24,11 @@ func NewDeppyConstraintBuilder(constraintGenerators ...ConstraintGenerator) *Dep
 	}
 }
 
-func (b *DeppyConstraintBuilder) Variables(ctx context.Context, entityQuerier entitysource.EntityQuerier) ([]sat.Variable, error) {
+func (b *DeppyConstraintBuilder) GetVariables(ctx context.Context, querier entitysource.EntityQuerier) ([]sat.Variable, error) {
 	// TODO: refactor to scatter cather through go routines
 	variables := make([]sat.Variable, 0)
 	for _, constraintGenerator := range b.constraintGenerators {
-		vars, err := constraintGenerator.GetVariables(ctx, entityQuerier)
+		vars, err := constraintGenerator.GetVariables(ctx, querier)
 		if err != nil {
 			return nil, err
 		}

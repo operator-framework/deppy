@@ -19,12 +19,12 @@ type Solver interface {
 
 type Options struct {
 	EntitySources     []entitysource.EntitySource
-	ConstraintBuilder constraints.ConstraintBuilder
+	ConstraintBuilder constraints.ConstraintGenerator
 }
 
 type DeppySolver struct {
 	entitySources     []entitysource.EntitySource
-	constraintBuilder constraints.ConstraintBuilder
+	constraintBuilder constraints.ConstraintGenerator
 }
 
 func NewDeppySolver(opts Options) (*DeppySolver, error) {
@@ -42,7 +42,7 @@ func NewDeppySolver(opts Options) (*DeppySolver, error) {
 
 func (d DeppySolver) Solve(ctx context.Context) (Solution, error) {
 	querier := entitysource.NewGroup(d.entitySources...)
-	vars, err := d.constraintBuilder.Variables(ctx, querier)
+	vars, err := d.constraintBuilder.GetVariables(ctx, querier)
 	if err != nil {
 		return nil, err
 	}
