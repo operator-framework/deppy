@@ -5,23 +5,27 @@ run:
 linters:
   enable:
   - asciicheck
-  - deadcode
+  - bodyclose
   - depguard
   - errorlint
   - gofmt
   - goimports
   - importas
-  - prealloc
-  - nestif
-  - revive
   - misspell
+  - nestif
+  - prealloc
+  - revive
   - stylecheck
   - tparallel
   - unconvert
   - unparam
+  - unused
   - whitespace
 
 linters-settings:
+  errorlint:
+    errorf: false
+
   importas:
     alias:
     - pkg: k8s.io/api/core/v1
@@ -30,6 +34,8 @@ linters-settings:
       alias: metav1
     - pkg: k8s.io/apimachinery/pkg/api/errors
       alias: apierrors
+    - pkg: github.com/operator-framework/deppy/api/v1alpha1
+      alias: deppyv1alpha1
   goimports:
     local-prefixes: github.com/operator-framework/deppy
 
