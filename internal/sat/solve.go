@@ -35,7 +35,7 @@ type Solver interface {
 
 type solver struct {
 	g      inter.S
-	litMap *LitMapping
+	litMap *litMapping
 	tracer Tracer
 	buffer []z.Lit
 }
@@ -78,7 +78,7 @@ func (s *solver) Solve(ctx context.Context) (result []Variable, err error) {
 	// push a new test scope with the baseline assumptions, to prevent them from being cleared during search
 	outcome, _ := s.g.Test(nil)
 	if outcome != satisfiable && outcome != unsatisfiable {
-		// searcher for solutions in input Order, so that preferences
+		// searcher for solutions in input order, so that preferences
 		// can be taken into acount (i.e. prefer one catalog to another)
 		outcome, assumptions, aset = (&search{s: s.g, lits: s.litMap, tracer: s.tracer}).Do(context.Background(), assumptions)
 	}

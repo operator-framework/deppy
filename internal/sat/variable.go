@@ -21,7 +21,7 @@ type Variable interface {
 	// this Variable among all other Variables in a given
 	// problem.
 	Identifier() Identifier
-	// Constraints returns the set of constraints that Apply to
+	// Constraints returns the set of constraints that apply to
 	// this Variable.
 	Constraints() []Constraint
 }

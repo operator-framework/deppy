@@ -22,7 +22,7 @@ type guess struct {
 
 type search struct {
 	s                      inter.S
-	lits                   *LitMapping
+	lits                   *litMapping
 	assumptions            map[z.Lit]struct{} // set of assumed lits - duplicates guess stack - for fast lookup
 	guesses                []guess            // stack of assumed guesses
 	headChoice, tailChoice *choice            // deque of unmade choices
@@ -59,7 +59,7 @@ func (h *search) PushGuess() {
 	variable := h.lits.VariableOf(g.m)
 	for _, constraint := range variable.Constraints() {
 		var ms []z.Lit
-		for _, dependency := range constraint.Order() {
+		for _, dependency := range constraint.order() {
 			ms = append(ms, h.lits.LitOf(dependency))
 		}
 		if len(ms) > 0 {

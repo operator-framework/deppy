@@ -21,10 +21,10 @@ func (inconsistentLitMapping) Error() string {
 	return "internal solver failure"
 }
 
-// LitMapping performs translation between the input and output types of
+// litMapping performs translation between the input and output types of
 // Solve (Constraints, Variables, etc.) and the variables that
 // appear in the SAT formula.
-type LitMapping struct {
+type litMapping struct {
 	inorder     []Variable
 	variables   map[z.Lit]Variable
 	lits        map[Identifier]z.Lit
@@ -33,12 +33,12 @@ type LitMapping struct {
 	errs        inconsistentLitMapping
 }
 
-// newLitMapping returns a new LitMapping with its state initialized based on
+// newLitMapping returns a new litMapping with its state initialized based on
 // the provided slice of Variables. This includes construction of
 // the translation tables between Variables/Constraints and the
 // inputs to the underlying solver.
-func newLitMapping(variables []Variable) (*LitMapping, error) {
-	d := LitMapping{
+func newLitMapping(variables []Variable) (*litMapping, error) {
+	d := litMapping{
 		inorder:     variables,
 		variables:   make(map[z.Lit]Variable, len(variables)),
 		lits:        make(map[Identifier]z.Lit, len(variables)),
@@ -58,7 +58,7 @@ func newLitMapping(variables []Variable) (*LitMapping, error) {
 
 	for _, variable := range variables {
 		for _, constraint := range variable.Constraints() {
-			m := constraint.Apply(d.c, &d, variable.Identifier())
+			m := constraint.apply(d.c, &d, variable.Identifier())
 			if m == z.LitNull {
 				// This constraint doesn't have a
 				// useful representation in the SAT
@@ -78,7 +78,7 @@ func newLitMapping(variables []Variable) (*LitMapping, error) {
 
 // LitOf returns the positive literal corresponding to the Variable
 // with the given Identifier.
-func (d *LitMapping) LitOf(id Identifier) z.Lit {
+func (d *litMapping) LitOf(id Identifier) z.Lit {
 	m, ok := d.lits[id]
 	if ok {
 		return m
@@ -89,7 +89,7 @@ func (d *LitMapping) LitOf(id Identifier) z.Lit {
 
 // VariableOf returns the Variable corresponding to the provided
 // literal, or a zeroVariable if no such Variable exists.
-func (d *LitMapping) VariableOf(m z.Lit) Variable {
+func (d *litMapping) VariableOf(m z.Lit) Variable {
 	i, ok := d.variables[m]
 	if ok {
 		return i
@@ -101,7 +101,7 @@ func (d *LitMapping) VariableOf(m z.Lit) Variable {
 // ConstraintOf returns the constraint application corresponding to
 // the provided literal, or a zeroConstraint if no such constraint
 // exists.
-func (d *LitMapping) ConstraintOf(m z.Lit) AppliedConstraint {
+func (d *litMapping) ConstraintOf(m z.Lit) AppliedConstraint {
 	if a, ok := d.constraints[m]; ok {
 		return a
 	}
@@ -113,10 +113,10 @@ func (d *LitMapping) ConstraintOf(m z.Lit) AppliedConstraint {
 }
 
 // Error returns a single error value that is an aggregation of all
-// errors encountered during a LitMapping's lifetime, or nil if there have
+// errors encountered during a litMapping's lifetime, or nil if there have
 // been no errors. A non-nil return value likely indicates a problem
 // with the solver or constraint implementations.
-func (d *LitMapping) Error() error {
+func (d *litMapping) Error() error {
 	if len(d.errs) == 0 {
 		return nil
 	}
@@ -129,11 +129,11 @@ func (d *LitMapping) Error() error {
 
 // AddConstraints adds the current constraints encoded in the embedded circuit to the
 // solver g
-func (d *LitMapping) AddConstraints(g inter.S) {
+func (d *litMapping) AddConstraints(g inter.S) {
 	d.c.ToCnf(g)
 }
 
-func (d *LitMapping) AssumeConstraints(s inter.S) {
+func (d *litMapping) AssumeConstraints(s inter.S) {
 	for m := range d.constraints {
 		s.Assume(m)
 	}
@@ -144,7 +144,7 @@ func (d *LitMapping) AssumeConstraints(s inter.S) {
 // new clauses and variables are translated to CNF and taught to the
 // given inter.Adder, so this function will panic if it is in a test
 // context.
-func (d *LitMapping) CardinalityConstrainer(g inter.Adder, ms []z.Lit) *logic.CardSort {
+func (d *litMapping) CardinalityConstrainer(g inter.Adder, ms []z.Lit) *logic.CardSort {
 	clen := d.c.Len()
 	cs := d.c.CardSort(ms)
 	marks := make([]int8, clen, d.c.Len())
@@ -158,13 +158,13 @@ func (d *LitMapping) CardinalityConstrainer(g inter.Adder, ms []z.Lit) *logic.Ca
 }
 
 // AnchorIdentifiers returns a slice containing the Identifiers of
-// every Variable with at least one "Anchor" constraint, in the
-// Order they appear in the input.
-func (d *LitMapping) AnchorIdentifiers() []Identifier {
+// every Variable with at least one "anchor" constraint, in the
+// order they appear in the input.
+func (d *litMapping) AnchorIdentifiers() []Identifier {
 	var ids []Identifier
 	for _, variable := range d.inorder {
 		for _, constraint := range variable.Constraints() {
-			if constraint.Anchor() {
+			if constraint.anchor() {
 				ids = append(ids, variable.Identifier())
 				break
 			}
@@ -173,7 +173,7 @@ func (d *LitMapping) AnchorIdentifiers() []Identifier {
 	return ids
 }
 
-func (d *LitMapping) Variables(g inter.S) []Variable {
+func (d *litMapping) Variables(g inter.S) []Variable {
 	var result []Variable
 	for _, i := range d.inorder {
 		if g.Value(d.LitOf(i.Identifier())) {
@@ -183,7 +183,7 @@ func (d *LitMapping) Variables(g inter.S) []Variable {
 	return result
 }
 
-func (d *LitMapping) Lits(dst []z.Lit) []z.Lit {
+func (d *litMapping) Lits(dst []z.Lit) []z.Lit {
 	if cap(dst) < len(d.inorder) {
 		dst = make([]z.Lit, 0, len(d.inorder))
 	}
@@ -195,7 +195,7 @@ func (d *LitMapping) Lits(dst []z.Lit) []z.Lit {
 	return dst
 }
 
-func (d *LitMapping) Conflicts(g inter.Assumable) []AppliedConstraint {
+func (d *litMapping) Conflicts(g inter.Assumable) []AppliedConstraint {
 	whys := g.Why(nil)
 	as := make([]AppliedConstraint, 0, len(whys))
 	for _, why := range whys {

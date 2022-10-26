@@ -12,9 +12,9 @@ import (
 // particular Variable can appear in a solution.
 type Constraint interface {
 	String(subject Identifier) string
-	Apply(c *logic.C, lm *LitMapping, subject Identifier) z.Lit
-	Order() []Identifier
-	Anchor() bool
+	apply(c *logic.C, lm *litMapping, subject Identifier) z.Lit
+	order() []Identifier
+	anchor() bool
 }
 
 // zeroConstraint is returned by ConstraintOf in error cases.
@@ -26,15 +26,15 @@ func (zeroConstraint) String(subject Identifier) string {
 	return ""
 }
 
-func (zeroConstraint) Apply(c *logic.C, lm *LitMapping, subject Identifier) z.Lit {
+func (zeroConstraint) apply(c *logic.C, lm *litMapping, subject Identifier) z.Lit {
 	return z.LitNull
 }
 
-func (zeroConstraint) Order() []Identifier {
+func (zeroConstraint) order() []Identifier {
 	return nil
 }
 
-func (zeroConstraint) Anchor() bool {
+func (zeroConstraint) anchor() bool {
 	return false
 }
 
@@ -57,15 +57,15 @@ func (constraint mandatory) String(subject Identifier) string {
 	return fmt.Sprintf("%s is mandatory", subject)
 }
 
-func (constraint mandatory) Apply(_ *logic.C, lm *LitMapping, subject Identifier) z.Lit {
+func (constraint mandatory) apply(_ *logic.C, lm *litMapping, subject Identifier) z.Lit {
 	return lm.LitOf(subject)
 }
 
-func (constraint mandatory) Order() []Identifier {
+func (constraint mandatory) order() []Identifier {
 	return nil
 }
 
-func (constraint mandatory) Anchor() bool {
+func (constraint mandatory) anchor() bool {
 	return true
 }
 
@@ -81,21 +81,21 @@ func (constraint prohibited) String(subject Identifier) string {
 	return fmt.Sprintf("%s is prohibited", subject)
 }
 
-func (constraint prohibited) Apply(c *logic.C, lm *LitMapping, subject Identifier) z.Lit {
+func (constraint prohibited) apply(c *logic.C, lm *litMapping, subject Identifier) z.Lit {
 	return lm.LitOf(subject).Not()
 }
 
-func (constraint prohibited) Order() []Identifier {
+func (constraint prohibited) order() []Identifier {
 	return nil
 }
 
-func (constraint prohibited) Anchor() bool {
+func (constraint prohibited) anchor() bool {
 	return false
 }
 
 // Prohibited returns a Constraint that will reject any solution that
 // contains a particular Variable. Callers may also decide to omit
-// an Variable from input to Solve rather than Apply such a
+// an Variable from input to Solve rather than apply such a
 // Constraint.
 func Prohibited() Constraint {
 	return prohibited{}
@@ -114,7 +114,7 @@ func (constraint dependency) String(subject Identifier) string {
 	return fmt.Sprintf("%s requires at least one of %s", subject, strings.Join(s, ", "))
 }
 
-func (constraint dependency) Apply(c *logic.C, lm *LitMapping, subject Identifier) z.Lit {
+func (constraint dependency) apply(c *logic.C, lm *litMapping, subject Identifier) z.Lit {
 	m := lm.LitOf(subject).Not()
 	for _, each := range constraint {
 		m = c.Or(m, lm.LitOf(each))
@@ -122,11 +122,11 @@ func (constraint dependency) Apply(c *logic.C, lm *LitMapping, subject Identifie
 	return m
 }
 
-func (constraint dependency) Order() []Identifier {
+func (constraint dependency) order() []Identifier {
 	return constraint
 }
 
-func (constraint dependency) Anchor() bool {
+func (constraint dependency) anchor() bool {
 	return false
 }
 
@@ -145,15 +145,15 @@ func (constraint conflict) String(subject Identifier) string {
 	return fmt.Sprintf("%s conflicts with %s", subject, constraint)
 }
 
-func (constraint conflict) Apply(c *logic.C, lm *LitMapping, subject Identifier) z.Lit {
+func (constraint conflict) apply(c *logic.C, lm *litMapping, subject Identifier) z.Lit {
 	return c.Or(lm.LitOf(subject).Not(), lm.LitOf(Identifier(constraint)).Not())
 }
 
-func (constraint conflict) Order() []Identifier {
+func (constraint conflict) order() []Identifier {
 	return nil
 }
 
-func (constraint conflict) Anchor() bool {
+func (constraint conflict) anchor() bool {
 	return false
 }
 
@@ -177,7 +177,7 @@ func (constraint leq) String(subject Identifier) string {
 	return fmt.Sprintf("%s permits at most %d of %s", subject, constraint.n, strings.Join(s, ", "))
 }
 
-func (constraint leq) Apply(c *logic.C, lm *LitMapping, subject Identifier) z.Lit {
+func (constraint leq) apply(c *logic.C, lm *litMapping, subject Identifier) z.Lit {
 	ms := make([]z.Lit, len(constraint.ids))
 	for i, each := range constraint.ids {
 		ms[i] = lm.LitOf(each)
@@ -185,11 +185,11 @@ func (constraint leq) Apply(c *logic.C, lm *LitMapping, subject Identifier) z.Li
 	return c.CardSort(ms).Leq(constraint.n)
 }
 
-func (constraint leq) Order() []Identifier {
+func (constraint leq) order() []Identifier {
 	return nil
 }
 
-func (constraint leq) Anchor() bool {
+func (constraint leq) anchor() bool {
 	return false
 }
 

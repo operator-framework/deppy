@@ -196,7 +196,7 @@ func TestSolve(t *testing.T) {
 			},
 		},
 		{
-			Name: "irrelevant dependencies don't influence search Order",
+			Name: "irrelevant dependencies don't influence search order",
 			Variables: []Variable{
 				variable("a", Dependency("x", "y")),
 				variable("b", Mandatory(), Dependency("y", "x")),
@@ -314,7 +314,7 @@ func TestSolve(t *testing.T) {
 			}
 
 			// Failed constraints are sorted in lexically
-			// increasing Order of the identifier of the
+			// increasing order of the identifier of the
 			// constraint's variable, with ties broken
 			// in favor of the constraint that appears
 			// earliest in the variable's list of
