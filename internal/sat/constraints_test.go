@@ -33,7 +33,7 @@ func TestOrder(t *testing.T) {
 		},
 	} {
 		t.Run(tt.Name, func(t *testing.T) {
-			assert.Equal(t, tt.Expected, tt.Constraint.Order())
+			assert.Equal(t, tt.Expected, tt.Constraint.order())
 		})
 	}
 }
