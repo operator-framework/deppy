@@ -3,24 +3,20 @@ package constraints
 import (
 	"context"
 
-	"github.com/operator-framework/deppy/internal/entitysource"
-	"github.com/operator-framework/deppy/internal/sat"
+	pkgconstraints "github.com/operator-framework/deppy/pkg/constraints"
+	"github.com/operator-framework/deppy/pkg/entitysource"
+	"github.com/operator-framework/deppy/pkg/sat"
 )
 
-// ConstraintGenerator generates solver constraints given an entity querier interface
-type ConstraintGenerator interface {
-	GetVariables(ctx context.Context, querier entitysource.EntityQuerier) ([]sat.Variable, error)
-}
-
-var _ ConstraintGenerator = &ConstraintAggregator{}
+var _ pkgconstraints.ConstraintGenerator = &ConstraintAggregator{}
 
 // ConstraintAggregator is a simple structure that aggregates different constraint generators
 // and collects all generated solver constraints
 type ConstraintAggregator struct {
-	constraintGenerators []ConstraintGenerator
+	constraintGenerators []pkgconstraints.ConstraintGenerator
 }
 
-func NewConstraintAggregator(constraintGenerators ...ConstraintGenerator) *ConstraintAggregator {
+func NewConstraintAggregator(constraintGenerators []pkgconstraints.ConstraintGenerator) *ConstraintAggregator {
 	return &ConstraintAggregator{
 		constraintGenerators: constraintGenerators,
 	}

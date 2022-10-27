@@ -1,4 +1,4 @@
-package sat
+package sat_test
 
 import (
 	"bytes"
@@ -10,18 +10,22 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/operator-framework/deppy/internal/sat"
+	pkgsat "github.com/operator-framework/deppy/pkg/sat"
+	"github.com/operator-framework/deppy/pkg/sat/constraints"
 )
 
 type TestVariable struct {
-	identifier  Identifier
-	constraints []Constraint
+	identifier  pkgsat.Identifier
+	constraints []pkgsat.Constraint
 }
 
-func (i TestVariable) Identifier() Identifier {
+func (i TestVariable) Identifier() pkgsat.Identifier {
 	return i.identifier
 }
 
-func (i TestVariable) Constraints() []Constraint {
+func (i TestVariable) Constraints() []pkgsat.Constraint {
 	return i.constraints
 }
 
@@ -29,7 +33,7 @@ func (i TestVariable) GoString() string {
 	return fmt.Sprintf("%q", i.Identifier())
 }
 
-func variable(id Identifier, constraints ...Constraint) Variable {
+func variable(id pkgsat.Identifier, constraints ...pkgsat.Constraint) pkgsat.Variable {
 	return TestVariable{
 		identifier:  id,
 		constraints: constraints,
@@ -39,7 +43,7 @@ func variable(id Identifier, constraints ...Constraint) Variable {
 func TestNotSatisfiableError(t *testing.T) {
 	type tc struct {
 		Name   string
-		Error  NotSatisfiable
+		Error  sat.NotSatisfiable
 		String string
 	}
 
@@ -51,33 +55,33 @@ func TestNotSatisfiableError(t *testing.T) {
 		{
 			Name:   "empty",
 			String: "constraints not satisfiable",
-			Error:  NotSatisfiable{},
+			Error:  sat.NotSatisfiable{},
 		},
 		{
 			Name: "single failure",
-			Error: NotSatisfiable{
-				AppliedConstraint{
-					Variable:   variable("a", Mandatory()),
-					Constraint: Mandatory(),
+			Error: sat.NotSatisfiable{
+				pkgsat.AppliedConstraint{
+					Variable:   variable("a", constraints.Mandatory()),
+					Constraint: constraints.Mandatory(),
 				},
 			},
 			String: fmt.Sprintf("constraints not satisfiable: %s",
-				Mandatory().String("a")),
+				constraints.Mandatory().String("a")),
 		},
 		{
 			Name: "multiple failures",
-			Error: NotSatisfiable{
-				AppliedConstraint{
-					Variable:   variable("a", Mandatory()),
-					Constraint: Mandatory(),
+			Error: sat.NotSatisfiable{
+				pkgsat.AppliedConstraint{
+					Variable:   variable("a", constraints.Mandatory()),
+					Constraint: constraints.Mandatory(),
 				},
-				AppliedConstraint{
-					Variable:   variable("b", Prohibited()),
-					Constraint: Prohibited(),
+				pkgsat.AppliedConstraint{
+					Variable:   variable("b", constraints.Prohibited()),
+					Constraint: constraints.Prohibited(),
 				},
 			},
 			String: fmt.Sprintf("constraints not satisfiable: %s, %s",
-				Mandatory().String("a"), Prohibited().String("b")),
+				constraints.Mandatory().String("a"), constraints.Prohibited().String("b")),
 		},
 	} {
 		t.Run(tt.Name, func(t *testing.T) {
@@ -89,8 +93,8 @@ func TestNotSatisfiableError(t *testing.T) {
 func TestSolve(t *testing.T) {
 	type tc struct {
 		Name      string
-		Variables []Variable
-		Installed []Identifier
+		Variables []pkgsat.Variable
+		Installed []pkgsat.Identifier
 		Error     error
 	}
 
@@ -100,207 +104,207 @@ func TestSolve(t *testing.T) {
 		},
 		{
 			Name:      "unnecessary variable is not installed",
-			Variables: []Variable{variable("a")},
+			Variables: []pkgsat.Variable{variable("a")},
 		},
 		{
 			Name:      "single mandatory variable is installed",
-			Variables: []Variable{variable("a", Mandatory())},
-			Installed: []Identifier{"a"},
+			Variables: []pkgsat.Variable{variable("a", constraints.Mandatory())},
+			Installed: []pkgsat.Identifier{"a"},
 		},
 		{
 			Name:      "both mandatory and prohibited produce error",
-			Variables: []Variable{variable("a", Mandatory(), Prohibited())},
-			Error: NotSatisfiable{
+			Variables: []pkgsat.Variable{variable("a", constraints.Mandatory(), constraints.Prohibited())},
+			Error: sat.NotSatisfiable{
 				{
-					Variable:   variable("a", Mandatory(), Prohibited()),
-					Constraint: Mandatory(),
+					Variable:   variable("a", constraints.Mandatory(), constraints.Prohibited()),
+					Constraint: constraints.Mandatory(),
 				},
 				{
-					Variable:   variable("a", Mandatory(), Prohibited()),
-					Constraint: Prohibited(),
+					Variable:   variable("a", constraints.Mandatory(), constraints.Prohibited()),
+					Constraint: constraints.Prohibited(),
 				},
 			},
 		},
 		{
 			Name: "dependency is installed",
-			Variables: []Variable{
+			Variables: []pkgsat.Variable{
 				variable("a"),
-				variable("b", Mandatory(), Dependency("a")),
+				variable("b", constraints.Mandatory(), constraints.Dependency("a")),
 			},
-			Installed: []Identifier{"a", "b"},
+			Installed: []pkgsat.Identifier{"a", "b"},
 		},
 		{
 			Name: "transitive dependency is installed",
-			Variables: []Variable{
+			Variables: []pkgsat.Variable{
 				variable("a"),
-				variable("b", Dependency("a")),
-				variable("c", Mandatory(), Dependency("b")),
+				variable("b", constraints.Dependency("a")),
+				variable("c", constraints.Mandatory(), constraints.Dependency("b")),
 			},
-			Installed: []Identifier{"a", "b", "c"},
+			Installed: []pkgsat.Identifier{"a", "b", "c"},
 		},
 		{
 			Name: "both dependencies are installed",
-			Variables: []Variable{
+			Variables: []pkgsat.Variable{
 				variable("a"),
 				variable("b"),
-				variable("c", Mandatory(), Dependency("a"), Dependency("b")),
+				variable("c", constraints.Mandatory(), constraints.Dependency("a"), constraints.Dependency("b")),
 			},
-			Installed: []Identifier{"a", "b", "c"},
+			Installed: []pkgsat.Identifier{"a", "b", "c"},
 		},
 		{
 			Name: "solution with first dependency is selected",
-			Variables: []Variable{
+			Variables: []pkgsat.Variable{
 				variable("a"),
-				variable("b", Conflict("a")),
-				variable("c", Mandatory(), Dependency("a", "b")),
+				variable("b", constraints.Conflict("a")),
+				variable("c", constraints.Mandatory(), constraints.Dependency("a", "b")),
 			},
-			Installed: []Identifier{"a", "c"},
+			Installed: []pkgsat.Identifier{"a", "c"},
 		},
 		{
 			Name: "solution with only first dependency is selected",
-			Variables: []Variable{
+			Variables: []pkgsat.Variable{
 				variable("a"),
 				variable("b"),
-				variable("c", Mandatory(), Dependency("a", "b")),
+				variable("c", constraints.Mandatory(), constraints.Dependency("a", "b")),
 			},
-			Installed: []Identifier{"a", "c"},
+			Installed: []pkgsat.Identifier{"a", "c"},
 		},
 		{
 			Name: "solution with first dependency is selected (reverse)",
-			Variables: []Variable{
+			Variables: []pkgsat.Variable{
 				variable("a"),
-				variable("b", Conflict("a")),
-				variable("c", Mandatory(), Dependency("b", "a")),
+				variable("b", constraints.Conflict("a")),
+				variable("c", constraints.Mandatory(), constraints.Dependency("b", "a")),
 			},
-			Installed: []Identifier{"b", "c"},
+			Installed: []pkgsat.Identifier{"b", "c"},
 		},
 		{
 			Name: "two mandatory but conflicting packages",
-			Variables: []Variable{
-				variable("a", Mandatory()),
-				variable("b", Mandatory(), Conflict("a")),
+			Variables: []pkgsat.Variable{
+				variable("a", constraints.Mandatory()),
+				variable("b", constraints.Mandatory(), constraints.Conflict("a")),
 			},
-			Error: NotSatisfiable{
+			Error: sat.NotSatisfiable{
 				{
-					Variable:   variable("a", Mandatory()),
-					Constraint: Mandatory(),
+					Variable:   variable("a", constraints.Mandatory()),
+					Constraint: constraints.Mandatory(),
 				},
 				{
-					Variable:   variable("b", Mandatory(), Conflict("a")),
-					Constraint: Mandatory(),
+					Variable:   variable("b", constraints.Mandatory(), constraints.Conflict("a")),
+					Constraint: constraints.Mandatory(),
 				},
 				{
-					Variable:   variable("b", Mandatory(), Conflict("a")),
-					Constraint: Conflict("a"),
+					Variable:   variable("b", constraints.Mandatory(), constraints.Conflict("a")),
+					Constraint: constraints.Conflict("a"),
 				},
 			},
 		},
 		{
 			Name: "irrelevant dependencies don't influence search order",
-			Variables: []Variable{
-				variable("a", Dependency("x", "y")),
-				variable("b", Mandatory(), Dependency("y", "x")),
+			Variables: []pkgsat.Variable{
+				variable("a", constraints.Dependency("x", "y")),
+				variable("b", constraints.Mandatory(), constraints.Dependency("y", "x")),
 				variable("x"),
 				variable("y"),
 			},
-			Installed: []Identifier{"b", "y"},
+			Installed: []pkgsat.Identifier{"b", "y"},
 		},
 		{
 			Name: "cardinality constraint prevents resolution",
-			Variables: []Variable{
-				variable("a", Mandatory(), Dependency("x", "y"), AtMost(1, "x", "y")),
-				variable("x", Mandatory()),
-				variable("y", Mandatory()),
+			Variables: []pkgsat.Variable{
+				variable("a", constraints.Mandatory(), constraints.Dependency("x", "y"), constraints.AtMost(1, "x", "y")),
+				variable("x", constraints.Mandatory()),
+				variable("y", constraints.Mandatory()),
 			},
-			Error: NotSatisfiable{
+			Error: sat.NotSatisfiable{
 				{
-					Variable:   variable("a", Mandatory(), Dependency("x", "y"), AtMost(1, "x", "y")),
-					Constraint: AtMost(1, "x", "y"),
+					Variable:   variable("a", constraints.Mandatory(), constraints.Dependency("x", "y"), constraints.AtMost(1, "x", "y")),
+					Constraint: constraints.AtMost(1, "x", "y"),
 				},
 				{
-					Variable:   variable("x", Mandatory()),
-					Constraint: Mandatory(),
+					Variable:   variable("x", constraints.Mandatory()),
+					Constraint: constraints.Mandatory(),
 				},
 				{
-					Variable:   variable("y", Mandatory()),
-					Constraint: Mandatory(),
+					Variable:   variable("y", constraints.Mandatory()),
+					Constraint: constraints.Mandatory(),
 				},
 			},
 		},
 		{
 			Name: "cardinality constraint forces alternative",
-			Variables: []Variable{
-				variable("a", Mandatory(), Dependency("x", "y"), AtMost(1, "x", "y")),
-				variable("b", Mandatory(), Dependency("y")),
+			Variables: []pkgsat.Variable{
+				variable("a", constraints.Mandatory(), constraints.Dependency("x", "y"), constraints.AtMost(1, "x", "y")),
+				variable("b", constraints.Mandatory(), constraints.Dependency("y")),
 				variable("x"),
 				variable("y"),
 			},
-			Installed: []Identifier{"a", "b", "y"},
+			Installed: []pkgsat.Identifier{"a", "b", "y"},
 		},
 		{
 			Name: "two dependencies satisfied by one variable",
-			Variables: []Variable{
-				variable("a", Mandatory(), Dependency("y")),
-				variable("b", Mandatory(), Dependency("x", "y")),
+			Variables: []pkgsat.Variable{
+				variable("a", constraints.Mandatory(), constraints.Dependency("y")),
+				variable("b", constraints.Mandatory(), constraints.Dependency("x", "y")),
 				variable("x"),
 				variable("y"),
 			},
-			Installed: []Identifier{"a", "b", "y"},
+			Installed: []pkgsat.Identifier{"a", "b", "y"},
 		},
 		{
 			Name: "foo two dependencies satisfied by one variable",
-			Variables: []Variable{
-				variable("a", Mandatory(), Dependency("y", "z", "m")),
-				variable("b", Mandatory(), Dependency("x", "y")),
+			Variables: []pkgsat.Variable{
+				variable("a", constraints.Mandatory(), constraints.Dependency("y", "z", "m")),
+				variable("b", constraints.Mandatory(), constraints.Dependency("x", "y")),
 				variable("x"),
 				variable("y"),
 				variable("z"),
 				variable("m"),
 			},
-			Installed: []Identifier{"a", "b", "y"},
+			Installed: []pkgsat.Identifier{"a", "b", "y"},
 		},
 		{
 			Name: "result size larger than minimum due to preference",
-			Variables: []Variable{
-				variable("a", Mandatory(), Dependency("x", "y")),
-				variable("b", Mandatory(), Dependency("y")),
+			Variables: []pkgsat.Variable{
+				variable("a", constraints.Mandatory(), constraints.Dependency("x", "y")),
+				variable("b", constraints.Mandatory(), constraints.Dependency("y")),
 				variable("x"),
 				variable("y"),
 			},
-			Installed: []Identifier{"a", "b", "x", "y"},
+			Installed: []pkgsat.Identifier{"a", "b", "x", "y"},
 		},
 		{
 			Name: "only the least preferable choice is acceptable",
-			Variables: []Variable{
-				variable("a", Mandatory(), Dependency("a1", "a2")),
-				variable("a1", Conflict("c1"), Conflict("c2")),
-				variable("a2", Conflict("c1")),
-				variable("b", Mandatory(), Dependency("b1", "b2")),
-				variable("b1", Conflict("c1"), Conflict("c2")),
-				variable("b2", Conflict("c1")),
-				variable("c", Mandatory(), Dependency("c1", "c2")),
+			Variables: []pkgsat.Variable{
+				variable("a", constraints.Mandatory(), constraints.Dependency("a1", "a2")),
+				variable("a1", constraints.Conflict("c1"), constraints.Conflict("c2")),
+				variable("a2", constraints.Conflict("c1")),
+				variable("b", constraints.Mandatory(), constraints.Dependency("b1", "b2")),
+				variable("b1", constraints.Conflict("c1"), constraints.Conflict("c2")),
+				variable("b2", constraints.Conflict("c1")),
+				variable("c", constraints.Mandatory(), constraints.Dependency("c1", "c2")),
 				variable("c1"),
 				variable("c2"),
 			},
-			Installed: []Identifier{"a", "a2", "b", "b2", "c", "c2"},
+			Installed: []pkgsat.Identifier{"a", "a2", "b", "b2", "c", "c2"},
 		},
 		{
 			Name: "preferences respected with multiple dependencies per variable",
-			Variables: []Variable{
-				variable("a", Mandatory(), Dependency("x1", "x2"), Dependency("y1", "y2")),
+			Variables: []pkgsat.Variable{
+				variable("a", constraints.Mandatory(), constraints.Dependency("x1", "x2"), constraints.Dependency("y1", "y2")),
 				variable("x1"),
 				variable("x2"),
 				variable("y1"),
 				variable("y2"),
 			},
-			Installed: []Identifier{"a", "x1", "y1"},
+			Installed: []pkgsat.Identifier{"a", "x1", "y1"},
 		},
 	} {
 		t.Run(tt.Name, func(t *testing.T) {
 			assert := assert.New(t)
 
 			var traces bytes.Buffer
-			s, err := NewSolver(WithInput(tt.Variables), WithTracer(LoggingTracer{Writer: &traces}))
+			s, err := sat.NewSolver(sat.WithInput(tt.Variables), sat.WithTracer(sat.LoggingTracer{Writer: &traces}))
 			if err != nil {
 				t.Fatalf("failed to initialize solver: %s", err)
 			}
@@ -319,7 +323,7 @@ func TestSolve(t *testing.T) {
 			// in favor of the constraint that appears
 			// earliest in the variable's list of
 			// constraints.
-			var ns NotSatisfiable
+			var ns sat.NotSatisfiable
 			if errors.As(err, &ns) {
 				sort.SliceStable(ns, func(i, j int) bool {
 					if ns[i].Variable.Identifier() != ns[j].Variable.Identifier() {
@@ -342,7 +346,7 @@ func TestSolve(t *testing.T) {
 				})
 			}
 
-			var ids []Identifier
+			var ids []pkgsat.Identifier
 			for _, variable := range installed {
 				ids = append(ids, variable.Identifier())
 			}
@@ -357,9 +361,9 @@ func TestSolve(t *testing.T) {
 }
 
 func TestDuplicateIdentifier(t *testing.T) {
-	_, err := NewSolver(WithInput([]Variable{
+	_, err := sat.NewSolver(sat.WithInput([]pkgsat.Variable{
 		variable("a"),
 		variable("a"),
 	}))
-	assert.Equal(t, DuplicateIdentifier("a"), err)
+	assert.Equal(t, pkgsat.DuplicateIdentifier("a"), err)
 }

@@ -7,16 +7,19 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/operator-framework/deppy/internal/constraints"
-	"github.com/operator-framework/deppy/internal/entitysource"
-	"github.com/operator-framework/deppy/internal/sat"
+	"github.com/operator-framework/deppy/pkg/constraints"
+	"github.com/operator-framework/deppy/pkg/entitysource"
+	"github.com/operator-framework/deppy/pkg/entitysource/factory"
+	"github.com/operator-framework/deppy/pkg/sat"
+	satconstraints "github.com/operator-framework/deppy/pkg/sat/constraints"
 )
 
 var _ entitysource.EntitySource = &Sudoku{}
+
 var _ constraints.ConstraintGenerator = &Sudoku{}
 
 type Sudoku struct {
-	*entitysource.CacheQuerier
+	entitysource.EntityQuerier
 	entitysource.EntityContentGetter
 }
 
@@ -42,7 +45,7 @@ func NewSudoku() *Sudoku {
 		}
 	}
 	return &Sudoku{
-		CacheQuerier:        entitysource.NewCacheQuerier(entities),
+		EntityQuerier:       factory.NewCacheQuerier(entities),
 		EntityContentGetter: entitysource.NoContentSource(),
 	}
 }
@@ -76,7 +79,7 @@ func (s Sudoku) GetVariables(ctx context.Context, querier entitysource.EntityQue
 
 			// create clause that the particular position has a number
 			varID := sat.Identifier(fmt.Sprintf("%d-%d has a number", row, col))
-			variable := constraints.NewVariable(varID, sat.Mandatory(), sat.Dependency(ids...))
+			variable := constraints.NewVariable(varID, satconstraints.Mandatory(), satconstraints.Dependency(ids...))
 			variables[varID] = variable
 			inorder = append(inorder, variable)
 		}
@@ -89,7 +92,7 @@ func (s Sudoku) GetVariables(ctx context.Context, querier entitysource.EntityQue
 				idA := sat.Identifier(GetID(row, colA, n))
 				variable := variables[idA]
 				for colB := colA + 1; colB < 9; colB++ {
-					variable.AddConstraint(sat.Conflict(sat.Identifier(GetID(row, colB, n))))
+					variable.AddConstraint(satconstraints.Conflict(sat.Identifier(GetID(row, colB, n))))
 				}
 			}
 		}
@@ -102,7 +105,7 @@ func (s Sudoku) GetVariables(ctx context.Context, querier entitysource.EntityQue
 				idA := sat.Identifier(GetID(rowA, col, n))
 				variable := variables[idA]
 				for rowB := rowA + 1; rowB < 9; rowB++ {
-					variable.AddConstraint(sat.Conflict(sat.Identifier(GetID(rowB, col, n))))
+					variable.AddConstraint(satconstraints.Conflict(sat.Identifier(GetID(rowB, col, n))))
 				}
 			}
 		}
@@ -121,7 +124,7 @@ func (s Sudoku) GetVariables(ctx context.Context, querier entitysource.EntityQue
 				for j := i + 1; j < len(offs); j++ {
 					offB := offs[j]
 					idB := sat.Identifier(GetID(x+offB.x, y+offB.y, n))
-					variable.AddConstraint(sat.Conflict(idB))
+					variable.AddConstraint(satconstraints.Conflict(idB))
 				}
 			}
 		}

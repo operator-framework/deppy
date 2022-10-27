@@ -3,40 +3,32 @@ package solver
 import (
 	"context"
 
-	"github.com/operator-framework/deppy/internal/constraints"
-	"github.com/operator-framework/deppy/internal/entitysource"
 	"github.com/operator-framework/deppy/internal/sat"
+	pkgconstraints "github.com/operator-framework/deppy/pkg/constraints"
+	"github.com/operator-framework/deppy/pkg/entitysource"
+	pkgsolver "github.com/operator-framework/deppy/pkg/solver"
 )
 
-var _ Solver = &DeppySolver{}
+var _ pkgsolver.Solver = &DeppySolver{}
 
 // TODO: should be disambiguate between solver errors due to constraints
 //       and other generic errors (e.g. entity source not reachable, etc.)
 
-// Solution is returned by the Solver when a solution could be found
-// it can be queried by EntityID to see if the entity was selected (true) or not (false)
-// by the solver
-type Solution map[entitysource.EntityID]bool
-
-type Solver interface {
-	Solve(ctx context.Context) (Solution, error)
-}
-
 // DeppySolver is a simple solver implementation that takes an entity source group and a constraint aggregator
 // to produce a Solution (or error if no solution can be found)
 type DeppySolver struct {
-	entitySourceGroup    *entitysource.Group
-	constraintAggregator *constraints.ConstraintAggregator
+	entitySourceGroup    entitysource.EntitySource
+	constraintAggregator pkgconstraints.ConstraintGenerator
 }
 
-func NewDeppySolver(entitySourceGroup *entitysource.Group, constraintAggregator *constraints.ConstraintAggregator) (*DeppySolver, error) {
-	return &DeppySolver{
+func NewDeppySolver(entitySourceGroup entitysource.EntitySource, constraintAggregator pkgconstraints.ConstraintGenerator) (DeppySolver, error) {
+	return DeppySolver{
 		entitySourceGroup:    entitySourceGroup,
 		constraintAggregator: constraintAggregator,
 	}, nil
 }
 
-func (d DeppySolver) Solve(ctx context.Context) (Solution, error) {
+func (d DeppySolver) Solve(ctx context.Context) (pkgsolver.Solution, error) {
 	vars, err := d.constraintAggregator.GetVariables(ctx, d.entitySourceGroup)
 	if err != nil {
 		return nil, err
@@ -52,7 +44,7 @@ func (d DeppySolver) Solve(ctx context.Context) (Solution, error) {
 		return nil, err
 	}
 
-	solution := Solution{}
+	solution := pkgsolver.Solution{}
 	for _, variable := range vars {
 		if entity := d.entitySourceGroup.Get(ctx, entitysource.EntityID(variable.Identifier())); entity != nil {
 			solution[entity.ID()] = false

@@ -1,13 +1,14 @@
 package dimacs
 
 import (
-	"github.com/operator-framework/deppy/internal/entitysource"
+	"github.com/operator-framework/deppy/pkg/entitysource"
+	"github.com/operator-framework/deppy/pkg/entitysource/factory"
 )
 
 var _ entitysource.EntitySource = &EntitySource{}
 
 type EntitySource struct {
-	*entitysource.CacheQuerier
+	entitysource.EntityQuerier
 	entitysource.EntityContentGetter
 }
 
@@ -19,7 +20,7 @@ func NewDimacsEntitySource(dimacs *Dimacs) *EntitySource {
 	}
 
 	return &EntitySource{
-		CacheQuerier:        entitysource.NewCacheQuerier(entities),
+		EntityQuerier:       factory.NewCacheQuerier(entities),
 		EntityContentGetter: entitysource.NoContentSource(),
 	}
 }

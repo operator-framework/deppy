@@ -3,11 +3,13 @@ package sat
 import (
 	"fmt"
 	"io"
+
+	pkgsat "github.com/operator-framework/deppy/pkg/sat"
 )
 
 type SearchPosition interface {
-	Variables() []Variable
-	Conflicts() []AppliedConstraint
+	Variables() []pkgsat.Variable
+	Conflicts() []pkgsat.AppliedConstraint
 }
 
 type Tracer interface {

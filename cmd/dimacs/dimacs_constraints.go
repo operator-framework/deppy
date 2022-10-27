@@ -4,9 +4,10 @@ import (
 	"context"
 	"strings"
 
-	"github.com/operator-framework/deppy/internal/constraints"
-	"github.com/operator-framework/deppy/internal/entitysource"
-	"github.com/operator-framework/deppy/internal/sat"
+	"github.com/operator-framework/deppy/pkg/constraints"
+	"github.com/operator-framework/deppy/pkg/entitysource"
+	"github.com/operator-framework/deppy/pkg/sat"
+	satconstraints "github.com/operator-framework/deppy/pkg/sat/constraints"
 )
 
 var _ constraints.ConstraintGenerator = &ConstraintGenerator{}
@@ -45,10 +46,10 @@ func (d *ConstraintGenerator) GetVariables(ctx context.Context, querier entityso
 			// TODO: check constraints haven't already been added to the variable
 			variable := varMap[entitysource.EntityID(strings.TrimPrefix(first, "-"))]
 			if strings.HasPrefix(first, "-") {
-				variable.AddConstraint(sat.Not())
+				variable.AddConstraint(satconstraints.Not())
 			} else {
 				// TODO: is this the right constraint here? (given that its an achoring constraint?)
-				variable.AddConstraint(sat.Mandatory())
+				variable.AddConstraint(satconstraints.Mandatory())
 			}
 			continue
 		}
@@ -59,7 +60,7 @@ func (d *ConstraintGenerator) GetVariables(ctx context.Context, querier entityso
 			negOperand := strings.HasPrefix(second, "-")
 
 			// TODO: this Or constraint is hacky as hell
-			variable.AddConstraint(sat.Or(sat.Identifier(strings.TrimPrefix(second, "-")), negSubject, negOperand))
+			variable.AddConstraint(satconstraints.Or(sat.Identifier(strings.TrimPrefix(second, "-")), negSubject, negOperand))
 			first = second
 		}
 	}

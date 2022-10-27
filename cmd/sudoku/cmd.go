@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/deppy/internal/constraints"
-	"github.com/operator-framework/deppy/internal/entitysource"
-	"github.com/operator-framework/deppy/internal/solver"
+	constraintsfactory "github.com/operator-framework/deppy/pkg/constraints/factory"
+	entitysourcefactory "github.com/operator-framework/deppy/pkg/entitysource/factory"
+	"github.com/operator-framework/deppy/pkg/solver/factory"
 )
 
 func NewSudokuCommand() *cobra.Command {
@@ -24,7 +24,7 @@ func NewSudokuCommand() *cobra.Command {
 func solve() error {
 	// build solver
 	sudoku := NewSudoku()
-	so, err := solver.NewDeppySolver(entitysource.NewGroup(sudoku), constraints.NewConstraintAggregator(sudoku))
+	so, err := factory.NewDeppySolver(entitysourcefactory.NewGroup(sudoku), constraintsfactory.NewConstraintAggregator(sudoku))
 	if err != nil {
 		return err
 	}
