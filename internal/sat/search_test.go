@@ -4,12 +4,39 @@ package sat
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/go-air/gini/inter"
 	"github.com/go-air/gini/z"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/operator-framework/deppy/pkg/constraints"
 )
+
+type TestVariable struct {
+	identifier  constraints.Identifier
+	constraints []constraints.Constraint
+}
+
+func (i TestVariable) Identifier() constraints.Identifier {
+	return i.identifier
+}
+
+func (i TestVariable) Constraints() []constraints.Constraint {
+	return i.constraints
+}
+
+func (i TestVariable) GoString() string {
+	return fmt.Sprintf("%q", i.Identifier())
+}
+
+func variable(id constraints.Identifier, constraints ...constraints.Constraint) constraints.IVariable {
+	return TestVariable{
+		identifier:  id,
+		constraints: constraints,
+	}
+}
 
 type TestScopeCounter struct {
 	depth *int
@@ -31,19 +58,19 @@ func (c *TestScopeCounter) Untest() (result int) {
 func TestSearch(t *testing.T) {
 	type tc struct {
 		Name          string
-		Variables     []Variable
+		Variables     []constraints.IVariable
 		TestReturns   []int
 		UntestReturns []int
 		Result        int
-		Assumptions   []Identifier
+		Assumptions   []constraints.Identifier
 	}
 
 	for _, tt := range []tc{
 		{
 			Name: "children popped from back of deque when guess popped",
-			Variables: []Variable{
-				variable("a", Mandatory(), Dependency("c")),
-				variable("b", Mandatory()),
+			Variables: []constraints.IVariable{
+				variable("a", constraints.Mandatory(), constraints.Dependency("c")),
+				variable("b", constraints.Mandatory()),
 				variable("c"),
 			},
 			TestReturns:   []int{0, -1},
@@ -53,16 +80,16 @@ func TestSearch(t *testing.T) {
 		},
 		{
 			Name: "candidates exhausted",
-			Variables: []Variable{
-				variable("a", Mandatory(), Dependency("x")),
-				variable("b", Mandatory(), Dependency("y")),
+			Variables: []constraints.IVariable{
+				variable("a", constraints.Mandatory(), constraints.Dependency("x")),
+				variable("b", constraints.Mandatory(), constraints.Dependency("y")),
 				variable("x"),
 				variable("y"),
 			},
 			TestReturns:   []int{0, 0, -1, 1},
 			UntestReturns: []int{0},
 			Result:        1,
-			Assumptions:   []Identifier{"a", "b", "y"},
+			Assumptions:   []constraints.Identifier{"a", "b", "y"},
 		},
 	} {
 		t.Run(tt.Name, func(t *testing.T) {
@@ -81,21 +108,21 @@ func TestSearch(t *testing.T) {
 
 			lits, err := newLitMapping(tt.Variables)
 			assert.NoError(err)
-			h := search{
-				s:      counter,
-				lits:   lits,
-				tracer: DefaultTracer{},
+			h := Search{
+				S:      counter,
+				Slits:  lits,
+				Tracer: DefaultTracer{},
 			}
 
 			var anchors []z.Lit
-			for _, id := range h.lits.AnchorIdentifiers() {
-				anchors = append(anchors, h.lits.LitOf(id))
+			for _, id := range h.Slits.AnchorIdentifiers() {
+				anchors = append(anchors, h.Slits.LitOf(id))
 			}
 
 			result, ms, _ := h.Do(context.Background(), anchors)
 
 			assert.Equal(tt.Result, result)
-			var ids []Identifier
+			var ids []constraints.Identifier
 			for _, m := range ms {
 				ids = append(ids, lits.VariableOf(m).Identifier())
 			}

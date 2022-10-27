@@ -4,7 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/operator-framework/deppy/internal/entitysource"
+	"github.com/operator-framework/deppy/pkg/entitysource"
 )
 
 var _ = Describe("Entity", func() {

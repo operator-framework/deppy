@@ -5,10 +5,12 @@ import (
 
 	"github.com/go-air/gini/inter"
 	"github.com/go-air/gini/z"
+
+	pkgconstraints "github.com/operator-framework/deppy/pkg/constraints"
 )
 
-type choice struct {
-	prev, next *choice
+type Choice struct {
+	prev, next *Choice
 	index      int // index of next unguessed literal
 	candidates []z.Lit
 }
@@ -20,18 +22,18 @@ type guess struct {
 	candidates []z.Lit
 }
 
-type search struct {
-	s                      inter.S
-	lits                   *litMapping
+type Search struct {
+	S                      inter.S
+	Slits                  *litMapping
 	assumptions            map[z.Lit]struct{} // set of assumed lits - duplicates guess stack - for fast lookup
 	guesses                []guess            // stack of assumed guesses
-	headChoice, tailChoice *choice            // deque of unmade choices
-	tracer                 Tracer
+	headChoice, tailChoice *Choice            // deque of unmade Choices
+	Tracer                 Tracer
 	result                 int
 	buffer                 []z.Lit
 }
 
-func (h *search) PushGuess() {
+func (h *Search) PushGuess() {
 	c := h.PopChoiceFront()
 	g := guess{
 		m:          z.LitNull,
@@ -56,15 +58,15 @@ func (h *search) PushGuess() {
 		return
 	}
 
-	variable := h.lits.VariableOf(g.m)
+	variable := h.Slits.VariableOf(g.m)
 	for _, constraint := range variable.Constraints() {
 		var ms []z.Lit
-		for _, dependency := range constraint.order() {
-			ms = append(ms, h.lits.LitOf(dependency))
+		for _, dependency := range constraint.Order {
+			ms = append(ms, h.Slits.LitOf(dependency))
 		}
 		if len(ms) > 0 {
 			h.guesses[len(h.guesses)-1].children++
-			h.PushChoiceBack(choice{candidates: ms})
+			h.PushChoiceBack(Choice{candidates: ms})
 		}
 	}
 
@@ -72,22 +74,22 @@ func (h *search) PushGuess() {
 		h.assumptions = make(map[z.Lit]struct{})
 	}
 	h.assumptions[g.m] = struct{}{}
-	h.s.Assume(g.m)
-	h.result, h.buffer = h.s.Test(h.buffer)
+	h.S.Assume(g.m)
+	h.result, h.buffer = h.S.Test(h.buffer)
 }
 
-func (h *search) PopGuess() {
+func (h *Search) PopGuess() {
 	g := h.guesses[len(h.guesses)-1]
 	h.guesses = h.guesses[:len(h.guesses)-1]
 	if g.m != z.LitNull {
 		delete(h.assumptions, g.m)
-		h.result = h.s.Untest()
+		h.result = h.S.Untest()
 	}
 	for g.children > 0 {
 		g.children--
 		h.PopChoiceBack()
 	}
-	c := choice{
+	c := Choice{
 		index:      g.index,
 		candidates: g.candidates,
 	}
@@ -97,7 +99,7 @@ func (h *search) PopGuess() {
 	h.PushChoiceFront(c)
 }
 
-func (h *search) PushChoiceFront(c choice) {
+func (h *Search) PushChoiceFront(c Choice) {
 	if h.headChoice == nil {
 		h.headChoice = &c
 		h.tailChoice = &c
@@ -108,7 +110,7 @@ func (h *search) PushChoiceFront(c choice) {
 	h.headChoice = &c
 }
 
-func (h *search) PopChoiceFront() choice {
+func (h *Search) PopChoiceFront() Choice {
 	c := h.headChoice
 	if c.next != nil {
 		c.next.prev = nil
@@ -119,7 +121,7 @@ func (h *search) PopChoiceFront() choice {
 	return *c
 }
 
-func (h *search) PushChoiceBack(c choice) {
+func (h *Search) PushChoiceBack(c Choice) {
 	if h.tailChoice == nil {
 		h.headChoice = &c
 		h.tailChoice = &c
@@ -130,7 +132,7 @@ func (h *search) PushChoiceBack(c choice) {
 	h.tailChoice = &c
 }
 
-func (h *search) PopChoiceBack() choice {
+func (h *Search) PopChoiceBack() Choice {
 	c := h.tailChoice
 	if c.prev != nil {
 		c.prev.next = nil
@@ -141,11 +143,11 @@ func (h *search) PopChoiceBack() choice {
 	return *c
 }
 
-func (h *search) Result() int {
+func (h *Search) Result() int {
 	return h.result
 }
 
-func (h *search) Lits() []z.Lit {
+func (h *Search) Lits() []z.Lit {
 	result := make([]z.Lit, 0, len(h.guesses))
 	for _, g := range h.guesses {
 		if g.m != z.LitNull {
@@ -155,9 +157,9 @@ func (h *search) Lits() []z.Lit {
 	return result
 }
 
-func (h *search) Do(ctx context.Context, anchors []z.Lit) (int, []z.Lit, map[z.Lit]struct{}) {
+func (h *Search) Do(ctx context.Context, anchors []z.Lit) (int, []z.Lit, map[z.Lit]struct{}) {
 	for _, m := range anchors {
-		h.PushChoiceBack(choice{candidates: []z.Lit{m}})
+		h.PushChoiceBack(Choice{candidates: []z.Lit{m}})
 	}
 
 	for {
@@ -165,12 +167,12 @@ func (h *search) Do(ctx context.Context, anchors []z.Lit) (int, []z.Lit, map[z.L
 		// have been made to decide whether to end or
 		// backtrack.
 		if h.headChoice == nil && h.result == unknown {
-			h.result = h.s.Solve()
+			h.result = h.S.Solve()
 		}
 
 		// Backtrack if possible, otherwise end.
 		if h.result == unsatisfiable {
-			h.tracer.Trace(h)
+			h.Tracer.Trace(h)
 			if len(h.guesses) == 0 {
 				break
 			}
@@ -202,16 +204,16 @@ func (h *search) Do(ctx context.Context, anchors []z.Lit) (int, []z.Lit, map[z.L
 	return result, lits, set
 }
 
-func (h *search) Variables() []Variable {
-	result := make([]Variable, 0, len(h.guesses))
+func (h *Search) Variables() []pkgconstraints.IVariable {
+	result := make([]pkgconstraints.IVariable, 0, len(h.guesses))
 	for _, g := range h.guesses {
 		if g.m != z.LitNull {
-			result = append(result, h.lits.VariableOf(g.candidates[g.index]))
+			result = append(result, h.Slits.VariableOf(g.candidates[g.index]))
 		}
 	}
 	return result
 }
 
-func (h *search) Conflicts() []AppliedConstraint {
-	return h.lits.Conflicts(h.s)
+func (h *Search) Conflicts() []pkgconstraints.AppliedConstraint {
+	return h.Slits.Conflicts(h.S)
 }

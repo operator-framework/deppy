@@ -1,29 +1,33 @@
 package entitysource
 
-import "context"
+import (
+	"context"
 
-var _ EntityQuerier = &CacheQuerier{}
+	pkgentitysource "github.com/operator-framework/deppy/pkg/entitysource"
+)
+
+var _ pkgentitysource.EntityQuerier = &CacheQuerier{}
 
 type CacheQuerier struct {
 	// TODO: separate out a cache
-	entities map[EntityID]Entity
+	entities map[pkgentitysource.EntityID]pkgentitysource.Entity
 }
 
-func NewCacheQuerier(entities map[EntityID]Entity) *CacheQuerier {
+func NewCacheQuerier(entities map[pkgentitysource.EntityID]pkgentitysource.Entity) *CacheQuerier {
 	return &CacheQuerier{
 		entities: entities,
 	}
 }
 
-func (c CacheQuerier) Get(_ context.Context, id EntityID) *Entity {
+func (c CacheQuerier) Get(_ context.Context, id pkgentitysource.EntityID) *pkgentitysource.Entity {
 	if entity, ok := c.entities[id]; ok {
 		return &entity
 	}
 	return nil
 }
 
-func (c CacheQuerier) Filter(_ context.Context, filter Predicate) (EntityList, error) {
-	resultSet := EntityList{}
+func (c CacheQuerier) Filter(_ context.Context, filter pkgentitysource.Predicate) (pkgentitysource.EntityList, error) {
+	resultSet := pkgentitysource.EntityList{}
 	for _, entity := range c.entities {
 		if filter(&entity) {
 			resultSet = append(resultSet, entity)
@@ -32,8 +36,8 @@ func (c CacheQuerier) Filter(_ context.Context, filter Predicate) (EntityList, e
 	return resultSet, nil
 }
 
-func (c CacheQuerier) GroupBy(_ context.Context, fn GroupByFunction) (EntityListMap, error) {
-	resultSet := EntityListMap{}
+func (c CacheQuerier) GroupBy(_ context.Context, fn pkgentitysource.GroupByFunction) (pkgentitysource.EntityListMap, error) {
+	resultSet := pkgentitysource.EntityListMap{}
 	for _, entity := range c.entities {
 		keys := fn(&entity)
 		for _, key := range keys {
@@ -43,7 +47,7 @@ func (c CacheQuerier) GroupBy(_ context.Context, fn GroupByFunction) (EntityList
 	return resultSet, nil
 }
 
-func (c CacheQuerier) Iterate(_ context.Context, fn IteratorFunction) error {
+func (c CacheQuerier) Iterate(_ context.Context, fn pkgentitysource.IteratorFunction) error {
 	for _, entity := range c.entities {
 		if err := fn(&entity); err != nil {
 			return err

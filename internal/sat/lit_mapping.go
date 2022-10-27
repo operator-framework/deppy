@@ -7,42 +7,57 @@ import (
 	"github.com/go-air/gini/inter"
 	"github.com/go-air/gini/logic"
 	"github.com/go-air/gini/z"
+
+	pkgconstraints "github.com/operator-framework/deppy/pkg/constraints"
 )
 
-type DuplicateIdentifier Identifier
+type DuplicateIdentifier pkgconstraints.Identifier
 
 func (e DuplicateIdentifier) Error() string {
-	return fmt.Sprintf("duplicate identifier %q in input", Identifier(e))
+	return fmt.Sprintf("duplicate identifier %q in input", pkgconstraints.Identifier(e))
 }
 
-type inconsistentLitMapping []error
+type inconsistentlitMapping []error
 
-func (inconsistentLitMapping) Error() string {
+func (inconsistentlitMapping) Error() string {
 	return "internal solver failure"
+}
+
+// zeroVariable is returned by VariableOf in error cases.
+type zeroVariable struct{}
+
+var _ pkgconstraints.IVariable = zeroVariable{}
+
+func (zeroVariable) Identifier() pkgconstraints.Identifier {
+	return ""
+}
+
+func (zeroVariable) Constraints() []pkgconstraints.Constraint {
+	return nil
 }
 
 // litMapping performs translation between the input and output types of
 // Solve (Constraints, Variables, etc.) and the variables that
 // appear in the SAT formula.
 type litMapping struct {
-	inorder     []Variable
-	variables   map[z.Lit]Variable
-	lits        map[Identifier]z.Lit
-	constraints map[z.Lit]AppliedConstraint
+	inorder     []pkgconstraints.IVariable
+	variables   map[z.Lit]pkgconstraints.IVariable
+	lits        map[pkgconstraints.Identifier]z.Lit
+	constraints map[z.Lit]pkgconstraints.AppliedConstraint
 	c           *logic.C
-	errs        inconsistentLitMapping
+	errs        inconsistentlitMapping
 }
 
-// newLitMapping returns a new litMapping with its state initialized based on
+// NewlitMapping returns a new litMapping with its state initialized based on
 // the provided slice of Variables. This includes construction of
 // the translation tables between Variables/Constraints and the
 // inputs to the underlying solver.
-func newLitMapping(variables []Variable) (*litMapping, error) {
+func newLitMapping(variables []pkgconstraints.IVariable) (*litMapping, error) {
 	d := litMapping{
 		inorder:     variables,
-		variables:   make(map[z.Lit]Variable, len(variables)),
-		lits:        make(map[Identifier]z.Lit, len(variables)),
-		constraints: make(map[z.Lit]AppliedConstraint),
+		variables:   make(map[z.Lit]pkgconstraints.IVariable, len(variables)),
+		lits:        make(map[pkgconstraints.Identifier]z.Lit, len(variables)),
+		constraints: make(map[z.Lit]pkgconstraints.AppliedConstraint),
 		c:           logic.NewCCap(len(variables)),
 	}
 
@@ -58,7 +73,44 @@ func newLitMapping(variables []Variable) (*litMapping, error) {
 
 	for _, variable := range variables {
 		for _, constraint := range variable.Constraints() {
-			m := constraint.apply(d.c, &d, variable.Identifier())
+			var m z.Lit
+			switch constraint.ConstraintType {
+			case "mandatory":
+				m = d.LitOf(variable.Identifier())
+			case "prohibited":
+				m = d.LitOf(variable.Identifier()).Not()
+			case "not":
+				m = d.LitOf(variable.Identifier()).Not()
+			case "dependency":
+				m = d.LitOf(variable.Identifier()).Not()
+				for _, each := range constraint.Properties["ids"].([]pkgconstraints.Identifier) {
+					m = d.c.Or(m, d.LitOf(each))
+				}
+			case "conflict":
+				m = d.c.Or(d.LitOf(variable.Identifier()).Not(), d.LitOf(constraint.Properties["id"].(pkgconstraints.Identifier)).Not())
+			case "atmost":
+				ms := make([]z.Lit, len(constraint.Properties["ids"].([]pkgconstraints.Identifier)))
+				for i, each := range constraint.Properties["ids"].([]pkgconstraints.Identifier) {
+					ms[i] = d.LitOf(each)
+				}
+				m = d.c.CardSort(ms).Leq(constraint.Properties["n"].(int))
+			case "or":
+				subjectLit := d.LitOf(variable.Identifier())
+				_, ok := constraint.Properties["issubjectnegated"]
+				if ok && constraint.Properties["issubjectnegated"].(bool) {
+					subjectLit = subjectLit.Not()
+				}
+				var operandLit z.Lit
+				_, ok = constraint.Properties["id"]
+				if ok {
+					operandLit = d.LitOf(constraint.Properties["id"].(pkgconstraints.Identifier))
+					_, ok = constraint.Properties["isoperandnegated"]
+					if ok && constraint.Properties["isoperandnegated"].(bool) {
+						operandLit = operandLit.Not()
+					}
+				}
+				m = d.c.Or(subjectLit, operandLit)
+			}
 			if m == z.LitNull {
 				// This constraint doesn't have a
 				// useful representation in the SAT
@@ -66,7 +118,7 @@ func newLitMapping(variables []Variable) (*litMapping, error) {
 				continue
 			}
 
-			d.constraints[m] = AppliedConstraint{
+			d.constraints[m] = pkgconstraints.AppliedConstraint{
 				Variable:   variable,
 				Constraint: constraint,
 			}
@@ -78,7 +130,7 @@ func newLitMapping(variables []Variable) (*litMapping, error) {
 
 // LitOf returns the positive literal corresponding to the Variable
 // with the given Identifier.
-func (d *litMapping) LitOf(id Identifier) z.Lit {
+func (d *litMapping) LitOf(id pkgconstraints.Identifier) z.Lit {
 	m, ok := d.lits[id]
 	if ok {
 		return m
@@ -89,7 +141,7 @@ func (d *litMapping) LitOf(id Identifier) z.Lit {
 
 // VariableOf returns the Variable corresponding to the provided
 // literal, or a zeroVariable if no such Variable exists.
-func (d *litMapping) VariableOf(m z.Lit) Variable {
+func (d *litMapping) VariableOf(m z.Lit) pkgconstraints.IVariable {
 	i, ok := d.variables[m]
 	if ok {
 		return i
@@ -101,14 +153,14 @@ func (d *litMapping) VariableOf(m z.Lit) Variable {
 // ConstraintOf returns the constraint application corresponding to
 // the provided literal, or a zeroConstraint if no such constraint
 // exists.
-func (d *litMapping) ConstraintOf(m z.Lit) AppliedConstraint {
+func (d *litMapping) ConstraintOf(m z.Lit) pkgconstraints.AppliedConstraint {
 	if a, ok := d.constraints[m]; ok {
 		return a
 	}
 	d.errs = append(d.errs, fmt.Errorf("no constraint corresponding to %s", m))
-	return AppliedConstraint{
+	return pkgconstraints.AppliedConstraint{
 		Variable:   zeroVariable{},
-		Constraint: zeroConstraint{},
+		Constraint: pkgconstraints.Constraint{ConstraintType: "zero", Order: nil},
 	}
 }
 
@@ -160,11 +212,11 @@ func (d *litMapping) CardinalityConstrainer(g inter.Adder, ms []z.Lit) *logic.Ca
 // AnchorIdentifiers returns a slice containing the Identifiers of
 // every Variable with at least one "anchor" constraint, in the
 // order they appear in the input.
-func (d *litMapping) AnchorIdentifiers() []Identifier {
-	var ids []Identifier
+func (d *litMapping) AnchorIdentifiers() []pkgconstraints.Identifier {
+	var ids []pkgconstraints.Identifier
 	for _, variable := range d.inorder {
 		for _, constraint := range variable.Constraints() {
-			if constraint.anchor() {
+			if constraint.Anchor {
 				ids = append(ids, variable.Identifier())
 				break
 			}
@@ -173,8 +225,8 @@ func (d *litMapping) AnchorIdentifiers() []Identifier {
 	return ids
 }
 
-func (d *litMapping) Variables(g inter.S) []Variable {
-	var result []Variable
+func (d *litMapping) Variables(g inter.S) []pkgconstraints.IVariable {
+	var result []pkgconstraints.IVariable
 	for _, i := range d.inorder {
 		if g.Value(d.LitOf(i.Identifier())) {
 			result = append(result, i)
@@ -195,9 +247,9 @@ func (d *litMapping) Lits(dst []z.Lit) []z.Lit {
 	return dst
 }
 
-func (d *litMapping) Conflicts(g inter.Assumable) []AppliedConstraint {
+func (d *litMapping) Conflicts(g inter.Assumable) []pkgconstraints.AppliedConstraint {
 	whys := g.Why(nil)
-	as := make([]AppliedConstraint, 0, len(whys))
+	as := make([]pkgconstraints.AppliedConstraint, 0, len(whys))
 	for _, why := range whys {
 		if a, ok := d.constraints[why]; ok {
 			as = append(as, a)

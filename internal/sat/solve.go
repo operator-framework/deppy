@@ -9,13 +9,15 @@ import (
 	"github.com/go-air/gini"
 	"github.com/go-air/gini/inter"
 	"github.com/go-air/gini/z"
+
+	pkgconstraints "github.com/operator-framework/deppy/pkg/constraints"
 )
 
 var ErrIncomplete = errors.New("cancelled before a solution could be found")
 
 // NotSatisfiable is an error composed of a minimal set of applied
 // constraints that is sufficient to make a solution impossible.
-type NotSatisfiable []AppliedConstraint
+type NotSatisfiable []pkgconstraints.AppliedConstraint
 
 func (e NotSatisfiable) Error() string {
 	const msg = "constraints not satisfiable"
@@ -30,7 +32,7 @@ func (e NotSatisfiable) Error() string {
 }
 
 type Solver interface {
-	Solve(context.Context) ([]Variable, error)
+	Solve(context.Context) ([]pkgconstraints.IVariable, error)
 }
 
 type solver struct {
@@ -50,7 +52,7 @@ const (
 // containing only those Variables that were selected for
 // installation. If no solution is possible, or if the provided
 // Context times out or is cancelled, an error is returned.
-func (s *solver) Solve(ctx context.Context) (result []Variable, err error) {
+func (s *solver) Solve(ctx context.Context) (result []pkgconstraints.IVariable, err error) {
 	defer func() {
 		// This likely indicates a bug, so discard whatever
 		// return values were produced.
@@ -80,7 +82,7 @@ func (s *solver) Solve(ctx context.Context) (result []Variable, err error) {
 	if outcome != satisfiable && outcome != unsatisfiable {
 		// searcher for solutions in input order, so that preferences
 		// can be taken into acount (i.e. prefer one catalog to another)
-		outcome, assumptions, aset = (&search{s: s.g, lits: s.litMap, tracer: s.tracer}).Do(context.Background(), assumptions)
+		outcome, assumptions, aset = (&Search{S: s.g, Slits: s.litMap, Tracer: s.tracer}).Do(context.Background(), assumptions)
 	}
 	switch outcome {
 	case satisfiable:
@@ -130,7 +132,7 @@ func NewSolver(options ...Option) (Solver, error) {
 
 type Option func(s *solver) error
 
-func WithInput(input []Variable) Option {
+func WithInput(input []pkgconstraints.IVariable) Option {
 	return func(s *solver) error {
 		var err error
 		s.litMap, err = newLitMapping(input)
