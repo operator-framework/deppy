@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option go_package = "./;api";
+
+package api;
+
+service DeppySourceAdapter {
+  rpc ListEntities(ListEntitiesRequest) returns (stream Entity) {}
+}
+
+message ListEntitiesRequest{}
+
+message Entity {
+  string id = 1;
+  map<string,string> properties = 2;
+}
+

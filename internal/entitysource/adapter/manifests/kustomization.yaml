@@ -1,0 +1,30 @@
+# kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namePrefix: catsrc-deppy-adapter-
+namespace: catsrc-deppy-adapter-ns
+
+images:
+- name: quay.io/ankitathomas/olm
+  newName: quay.io/olm-test
+  newTag: deppysrc
+
+commonLabels:
+  olm.deppyadapter.catalogsource: community-operators
+
+resources:
+- 02_deployment.yaml
+- 01_sa.yaml
+- 03_svc.yaml
+
+patches:
+- patch:  |-
+    - op: replace
+      path: /spec/template/spec/containers/0/args
+      value: ["-n", "olm", "-s", "operatorhubio-catalog"]
+  target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: catsrc-deppy-adapter

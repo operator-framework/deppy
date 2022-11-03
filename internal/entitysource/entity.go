@@ -11,23 +11,23 @@ func (p EntityPropertyNotFoundError) Error() string {
 }
 
 type Entity struct {
-	id         EntityID
-	properties map[string]string
+	Eid        EntityID          `json:"id,omitempty"`
+	Properties map[string]string `json:"properties,omitempty"`
 }
 
 func NewEntity(id EntityID, properties map[string]string) *Entity {
 	return &Entity{
-		id:         id,
-		properties: properties,
+		Eid:        id,
+		Properties: properties,
 	}
 }
 
 func (e *Entity) ID() EntityID {
-	return e.id
+	return e.Eid
 }
 
 func (e *Entity) GetProperty(key string) (string, error) {
-	value, ok := e.properties[key]
+	value, ok := e.Properties[key]
 	if !ok {
 		return "", EntityPropertyNotFoundError(key)
 	}

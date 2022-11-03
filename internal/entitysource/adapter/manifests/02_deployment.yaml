@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catsrc-deppy-adapter
+  namespace: olm
+spec:
+  selector:
+    matchLabels:
+      olm.deppyadapter.catalogsource: community-operators
+  template:
+    metadata:
+      labels:
+        olm.deppyadapter.catalogsource: community-operators
+    spec:
+      containers:
+      - name: catsrc-deppy-adapter
+        image: quay.io/ankitathomas/olm:deppycatsrc
+        imagePullPolicy: Always
+        command: ["./catalog_source_controller"]
+        args: ["-n", "olm", "-s", "operatorhubio-catalog"]
+        ports:
+        - name: grpc
+          containerPort: 50052
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: "RuntimeDefault"
+      nodeSelector:
+        kubernetes.io/os: linux
+      serviceAccountName: catsrc-deppy-adapter
