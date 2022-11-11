@@ -2,7 +2,6 @@ package solver_test
 
 import (
 	"context"
-	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,32 +20,30 @@ type EntitySourceStruct struct {
 	entitysource.EntityContentGetter
 }
 
-func (c EntitySourceStruct) GetVariables(ctx context.Context, querier entitysource.EntityQuerier) ([]sat.Variable, error) {
+func (c EntitySourceStruct) GetVariables(_ context.Context, _ entitysource.EntityQuerier) ([]sat.Variable, error) {
 	return c.variables, nil
 }
 
-func createEntities(num int) map[entitysource.EntityID]entitysource.Entity {
-	entities := make(map[entitysource.EntityID]entitysource.Entity, num)
-	for i := 0; i < num; i++ {
-		//id := entitysource.EntityID(string([]byte{byte('1' + i)}))
-		id := entitysource.EntityID(strconv.Itoa(i + 1))
-		entities[id] = *entitysource.NewEntity(id, map[string]string{"p1": "x", "p2": "y"})
+func NewEntitySource(variables []sat.Variable) *EntitySourceStruct {
+	entities := make(map[entitysource.EntityID]entitysource.Entity, len(variables))
+	for _, variable := range variables {
+		entityID := entitysource.EntityID(variable.Identifier())
+		entities[entityID] = *entitysource.NewEntity(entityID, map[string]string{"x": "y"})
 	}
-	return entities
+	return &EntitySourceStruct{
+		variables:           variables,
+		EntityQuerier:       entitysource.NewCacheQuerier(entities),
+		EntityContentGetter: entitysource.NoContentSource(),
+	}
 }
 
 var _ = Describe("Entity", func() {
-	It("1 mandatory", func() {
-		entities := createEntities(2)
+	It("should select a mandatory entity", func() {
 		variables := []sat.Variable{
-			constraints.NewVariable(sat.Identifier("1"), sat.Mandatory()),
-			constraints.NewVariable(sat.Identifier("2")),
+			constraints.NewVariable("1", sat.Mandatory()),
+			constraints.NewVariable("2"),
 		}
-		s := &EntitySourceStruct{
-			EntityQuerier:       entitysource.NewCacheQuerier(entities),
-			EntityContentGetter: entitysource.NoContentSource(),
-			variables:           variables,
-		}
+		s := NewEntitySource(variables)
 		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), constraints.NewConstraintAggregator(s))
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
@@ -57,17 +54,12 @@ var _ = Describe("Entity", func() {
 		}))
 	})
 
-	It("2 mandatories", func() {
-		entities := createEntities(2)
+	It("should select two mandatory entities", func() {
 		variables := []sat.Variable{
-			constraints.NewVariable(sat.Identifier("1"), sat.Mandatory()),
-			constraints.NewVariable(sat.Identifier("2"), sat.Mandatory()),
+			constraints.NewVariable("1", sat.Mandatory()),
+			constraints.NewVariable("2", sat.Mandatory()),
 		}
-		s := &EntitySourceStruct{
-			EntityQuerier:       entitysource.NewCacheQuerier(entities),
-			EntityContentGetter: entitysource.NoContentSource(),
-			variables:           variables,
-		}
+		s := NewEntitySource(variables)
 		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), constraints.NewConstraintAggregator(s))
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
@@ -78,18 +70,14 @@ var _ = Describe("Entity", func() {
 		}))
 	})
 
-	It("1 mandatory, 1 dependent", func() {
-		entities := createEntities(3)
+	It("should select a mandatory entity and its dependency", func() {
 		variables := []sat.Variable{
-			constraints.NewVariable(sat.Identifier("1"), sat.Mandatory(), sat.Dependency(sat.Identifier("2"))),
-			constraints.NewVariable(sat.Identifier("2")),
-			constraints.NewVariable(sat.Identifier("3")),
+			constraints.NewVariable("1", sat.Mandatory(), sat.Dependency("2")),
+			constraints.NewVariable("2"),
+			constraints.NewVariable("3"),
 		}
-		s := &EntitySourceStruct{
-			EntityQuerier:       entitysource.NewCacheQuerier(entities),
-			EntityContentGetter: entitysource.NoContentSource(),
-			variables:           variables,
-		}
+		s := NewEntitySource(variables)
+
 		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), constraints.NewConstraintAggregator(s))
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
@@ -101,37 +89,26 @@ var _ = Describe("Entity", func() {
 		}))
 	})
 
-	It("1 mandatory, 1 dependent, dependent Prohibited", func() {
-		entities := createEntities(3)
+	It("should fail when a dependency is prohibited", func() {
 		variables := []sat.Variable{
-			constraints.NewVariable(sat.Identifier("1"), sat.Mandatory(), sat.Dependency(sat.Identifier("2"))),
-			constraints.NewVariable(sat.Identifier("2"), sat.Prohibited()),
-			constraints.NewVariable(sat.Identifier("3")),
+			constraints.NewVariable("1", sat.Mandatory(), sat.Dependency("2")),
+			constraints.NewVariable("2", sat.Prohibited()),
+			constraints.NewVariable("3"),
 		}
-
-		s := &EntitySourceStruct{
-			EntityQuerier:       entitysource.NewCacheQuerier(entities),
-			EntityContentGetter: entitysource.NoContentSource(),
-			variables:           variables,
-		}
+		s := NewEntitySource(variables)
 		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), constraints.NewConstraintAggregator(s))
 		Expect(err).To(BeNil())
 		_, err = so.Solve(context.Background())
 		Expect(err).Should(HaveOccurred())
 	})
 
-	It("1 mandatory, 1 dependent, none-dependent Prohibited", func() {
-		entities := createEntities(3)
+	It("should select a mandatory entity and its dependency and ignore a non-mandatory prohibited variable", func() {
 		variables := []sat.Variable{
-			constraints.NewVariable(sat.Identifier("1"), sat.Mandatory(), sat.Dependency(sat.Identifier("2"))),
-			constraints.NewVariable(sat.Identifier("2")),
-			constraints.NewVariable(sat.Identifier("3"), sat.Prohibited()),
+			constraints.NewVariable("1", sat.Mandatory(), sat.Dependency("2")),
+			constraints.NewVariable("2"),
+			constraints.NewVariable("3", sat.Prohibited()),
 		}
-		s := &EntitySourceStruct{
-			EntityQuerier:       entitysource.NewCacheQuerier(entities),
-			EntityContentGetter: entitysource.NoContentSource(),
-			variables:           variables,
-		}
+		s := NewEntitySource(variables)
 		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), constraints.NewConstraintAggregator(s))
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
@@ -143,19 +120,14 @@ var _ = Describe("Entity", func() {
 		}))
 	})
 
-	It("or, dependent, dependent Prohibited", func() {
-		entities := createEntities(4)
+	It("should not select 'or' paths that are prohibited", func() {
 		variables := []sat.Variable{
-			constraints.NewVariable(sat.Identifier("1"), sat.Or(sat.Identifier("2"), false, false), sat.Dependency(sat.Identifier("3"))),
-			constraints.NewVariable(sat.Identifier("2"), sat.Dependency(sat.Identifier("4"))),
-			constraints.NewVariable(sat.Identifier("3"), sat.Prohibited()),
-			constraints.NewVariable(sat.Identifier("4")),
+			constraints.NewVariable("1", sat.Or("2", false, false), sat.Dependency("3")),
+			constraints.NewVariable("2", sat.Dependency("4")),
+			constraints.NewVariable("3", sat.Prohibited()),
+			constraints.NewVariable("4"),
 		}
-		s := &EntitySourceStruct{
-			EntityQuerier:       entitysource.NewCacheQuerier(entities),
-			EntityContentGetter: entitysource.NoContentSource(),
-			variables:           variables,
-		}
+		s := NewEntitySource(variables)
 		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), constraints.NewConstraintAggregator(s))
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
@@ -168,19 +140,14 @@ var _ = Describe("Entity", func() {
 		}))
 	})
 
-	It("at most, or, dependent", func() {
-		entities := createEntities(4)
+	It("should respect atMost constraint", func() {
 		variables := []sat.Variable{
-			constraints.NewVariable(sat.Identifier("1"), sat.Or(sat.Identifier("2"), false, false), sat.Dependency(sat.Identifier("3")), sat.Dependency(sat.Identifier("4"))),
-			constraints.NewVariable(sat.Identifier("2"), sat.Dependency(sat.Identifier("3"))),
-			constraints.NewVariable(sat.Identifier("3"), sat.AtMost(1, sat.Identifier("3"), sat.Identifier("4"))),
-			constraints.NewVariable(sat.Identifier("4")),
+			constraints.NewVariable("1", sat.Or("2", false, false), sat.Dependency("3"), sat.Dependency("4")),
+			constraints.NewVariable("2", sat.Dependency("3")),
+			constraints.NewVariable("3", sat.AtMost(1, "3", "4")),
+			constraints.NewVariable("4"),
 		}
-		s := &EntitySourceStruct{
-			EntityQuerier:       entitysource.NewCacheQuerier(entities),
-			EntityContentGetter: entitysource.NoContentSource(),
-			variables:           variables,
-		}
+		s := NewEntitySource(variables)
 		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), constraints.NewConstraintAggregator(s))
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
@@ -193,21 +160,16 @@ var _ = Describe("Entity", func() {
 		}))
 	})
 
-	It("conflict, or, dependent", func() {
-		entities := createEntities(6)
+	It("should respect dependency conflicts", func() {
 		variables := []sat.Variable{
-			constraints.NewVariable(sat.Identifier("1"), sat.Or(sat.Identifier("2"), false, false), sat.Dependency(sat.Identifier("3")), sat.Dependency(sat.Identifier("4"))),
-			constraints.NewVariable(sat.Identifier("2"), sat.Dependency(sat.Identifier("4")), sat.Dependency(sat.Identifier("5"))),
-			constraints.NewVariable(sat.Identifier("3"), sat.Conflict(sat.Identifier("6"))),
-			constraints.NewVariable(sat.Identifier("4"), sat.Dependency(sat.Identifier("6"))),
-			constraints.NewVariable(sat.Identifier("5")),
-			constraints.NewVariable(sat.Identifier("6")),
+			constraints.NewVariable("1", sat.Or("2", false, false), sat.Dependency("3"), sat.Dependency("4")),
+			constraints.NewVariable("2", sat.Dependency("4"), sat.Dependency("5")),
+			constraints.NewVariable("3", sat.Conflict("6")),
+			constraints.NewVariable("4", sat.Dependency("6")),
+			constraints.NewVariable("5"),
+			constraints.NewVariable("6"),
 		}
-		s := &EntitySourceStruct{
-			EntityQuerier:       entitysource.NewCacheQuerier(entities),
-			EntityContentGetter: entitysource.NoContentSource(),
-			variables:           variables,
-		}
+		s := NewEntitySource(variables)
 		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), constraints.NewConstraintAggregator(s))
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
