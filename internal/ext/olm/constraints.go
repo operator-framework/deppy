@@ -15,11 +15,13 @@ import (
 )
 
 const (
-	propertyOLMGVK            = "olm.gvk"
-	propertyOLMPackageName    = "olm.packageName"
-	propertyOLMVersion        = "olm.version"
-	propertyOLMChannel        = "olm.channel"
-	propertyOLMDefaultChannel = "olm.defaultChannel"
+	PropertyOLMGVK            = "olm.gvk"
+	PropertyOLMPackageName    = "olm.packageName"
+	PropertyOLMVersion        = "olm.version"
+	PropertyOLMChannel        = "olm.channel"
+	PropertyOLMDefaultChannel = "olm.defaultChannel"
+
+	propertyNotFound = ""
 )
 
 var _ constraints.ConstraintGenerator = &requirePackage{}
@@ -35,7 +37,7 @@ func (r *requirePackage) GetVariables(ctx context.Context, querier entitysource.
 		withPackageName(r.packageName),
 		withinVersion(r.versionRange),
 		withChannel(r.channel)))
-	if err != nil {
+	if err != nil || len(resultSet) == 0 {
 		return nil, err
 	}
 	ids := resultSet.Sort(byChannelAndVersion).CollectIds()
@@ -65,7 +67,7 @@ type uniqueness struct {
 
 func (u *uniqueness) GetVariables(ctx context.Context, querier entitysource.EntityQuerier) ([]sat.Variable, error) {
 	resultSet, err := querier.GroupBy(ctx, u.groupByFn)
-	if err != nil {
+	if err != nil || len(resultSet) == 0 {
 		return nil, err
 	}
 	variables := make([]sat.Variable, 0, len(resultSet))
@@ -106,7 +108,7 @@ type packageDependency struct {
 
 func (p *packageDependency) GetVariables(ctx context.Context, querier entitysource.EntityQuerier) ([]sat.Variable, error) {
 	entities, err := querier.Filter(ctx, entitysource.And(withPackageName(p.packageName), withinVersion(p.versionRange)))
-	if err != nil {
+	if err != nil || len(entities) == 0 {
 		return nil, err
 	}
 	ids := toSatIdentifier(entities.Sort(byChannelAndVersion).CollectIds()...)
@@ -133,7 +135,7 @@ type gvkDependency struct {
 
 func (g *gvkDependency) GetVariables(ctx context.Context, querier entitysource.EntityQuerier) ([]sat.Variable, error) {
 	entities, err := querier.Filter(ctx, entitysource.And(withExportsGVK(g.group, g.version, g.kind)))
-	if err != nil {
+	if err != nil || len(entities) == 0 {
 		return nil, err
 	}
 	ids := toSatIdentifier(entities.Sort(byChannelAndVersion).CollectIds()...)
@@ -152,7 +154,7 @@ func GVKDependency(subject sat.Identifier, group string, version string, kind st
 
 func withPackageName(packageName string) entitysource.Predicate {
 	return func(entity *entitysource.Entity) bool {
-		if pkgName, err := entity.GetProperty(propertyOLMPackageName); err == nil {
+		if pkgName, err := entity.GetProperty(PropertyOLMPackageName); err == nil {
 			return pkgName == packageName
 		}
 		return false
@@ -161,7 +163,7 @@ func withPackageName(packageName string) entitysource.Predicate {
 
 func withinVersion(semverRange string) entitysource.Predicate {
 	return func(entity *entitysource.Entity) bool {
-		if v, err := entity.GetProperty(propertyOLMVersion); err == nil {
+		if v, err := entity.GetProperty(PropertyOLMVersion); err == nil {
 			vrange, err := semver.ParseRange(semverRange)
 			if err != nil {
 				return false
@@ -181,7 +183,7 @@ func withChannel(channel string) entitysource.Predicate {
 		if channel == "" {
 			return true
 		}
-		if c, err := entity.GetProperty(propertyOLMChannel); err == nil {
+		if c, err := entity.GetProperty(PropertyOLMChannel); err == nil {
 			return c == channel
 		}
 		return false
@@ -190,7 +192,7 @@ func withChannel(channel string) entitysource.Predicate {
 
 func withExportsGVK(group string, version string, kind string) entitysource.Predicate {
 	return func(entity *entitysource.Entity) bool {
-		if g, err := entity.GetProperty(propertyOLMGVK); err == nil {
+		if g, err := entity.GetProperty(PropertyOLMGVK); err == nil {
 			for _, gvk := range gjson.Parse(g).Array() {
 				if gjson.Get(gvk.String(), "group").String() == group && gjson.Get(gvk.String(), "version").String() == version && gjson.Get(gvk.String(), "kind").String() == kind {
 					return true
@@ -201,77 +203,82 @@ func withExportsGVK(group string, version string, kind string) entitysource.Pred
 	}
 }
 
+// byChannelAndVersion is an entity sort function that orders the entities in
+// package, channel (default channel at the head), and inverse version (higher versions on top)
+// if a property does not exist for one of the entities, the one missing the property is pushed down
+// if both entities are missing the same property they are ordered by id
 func byChannelAndVersion(e1 *entitysource.Entity, e2 *entitysource.Entity) bool {
-	e1pkgName, err := e1.GetProperty(propertyOLMPackageName)
-	if err != nil {
-		return false
+	idOrder := e1.ID() < e2.ID()
+
+	// first sort package lexical order
+	pkgOrder := compareProperty(getPropertyOrNotFound(e1, PropertyOLMPackageName), getPropertyOrNotFound(e2, PropertyOLMPackageName))
+	if pkgOrder != 0 {
+		return pkgOrder < 0
 	}
 
-	e2pkgName, err := e2.GetProperty(propertyOLMPackageName)
-	if err != nil {
-		return true
-	}
+	// then sort by channel order with default channel at the start and all other channels in lexical order
+	e1DefaultChannel := getPropertyOrNotFound(e1, PropertyOLMDefaultChannel)
+	e2DefaultChannel := getPropertyOrNotFound(e2, PropertyOLMDefaultChannel)
 
-	if e1pkgName != e2pkgName {
-		return e1pkgName < e2pkgName
-	}
+	e1Channel := getPropertyOrNotFound(e1, PropertyOLMChannel)
+	e2Channel := getPropertyOrNotFound(e2, PropertyOLMChannel)
+	channelOrder := compareProperty(e1Channel, e2Channel)
 
-	e1Channel, err := e1.GetProperty(propertyOLMChannel)
-	if err != nil {
-		return false
-	}
+	// if both entities are from different channels
+	if channelOrder != 0 {
+		e1InDefaultChannel := e1Channel == e1DefaultChannel && e1Channel != propertyNotFound
+		e2InDefaultChannel := e2Channel == e2DefaultChannel && e2Channel != propertyNotFound
 
-	e2Channel, err := e2.GetProperty(propertyOLMChannel)
-	if err != nil {
-		return true
-	}
-
-	if e1Channel != e2Channel {
-		e1DefaultChannel, err := e1.GetProperty(propertyOLMDefaultChannel)
-		if err != nil {
-			return e1Channel < e2Channel
+		// if one of them is in the default channel, promote it
+		// if both of them are in their default channels, stay with lexical channel order
+		if e1InDefaultChannel || e2InDefaultChannel && !(e1InDefaultChannel && e2InDefaultChannel) {
+			return e1InDefaultChannel
 		}
-		e2DefaultChannel, err := e2.GetProperty(propertyOLMDefaultChannel)
-		if err != nil {
-			return e1Channel < e2Channel
-		}
-		if e1Channel == e1DefaultChannel {
-			return true
-		} else if e2Channel == e2DefaultChannel {
-			return false
-		}
-		return e1Channel < e2Channel
+
+		// otherwise sort by channel lexical order
+		return channelOrder < 0
 	}
 
-	e1Version, err := e1.GetProperty(propertyOLMVersion)
-	if err != nil {
-		return false
-	}
-	e2Version, err := e2.GetProperty(propertyOLMVersion)
-	if err != nil {
-		return true
+	// if package and channel are the same, compare by version
+	e1Version := getPropertyOrNotFound(e1, PropertyOLMVersion)
+	e2Version := getPropertyOrNotFound(e2, PropertyOLMVersion)
+
+	// if neither has a version property, sort in ID order
+	if e1Version == propertyNotFound && e2Version == propertyNotFound {
+		return idOrder
 	}
 
+	// if one of the version is not found, not found is higher than found
+	if e1Version == propertyNotFound || e2Version == propertyNotFound {
+		return e1Version > e2Version
+	}
+
+	// if one or both of the versions cannot be parsed, return id order
 	v1, err := semver.Parse(e1Version)
 	if err != nil {
-		return false
+		return idOrder
 	}
 	v2, err := semver.Parse(e2Version)
 	if err != nil {
-		return false
+		return idOrder
 	}
 
-	// order version from highest to lowest
+	// finally, order version from highest to lowest (favor the latest release)
 	return v1.GT(v2)
 }
 
 func gvkGroupFunction(entity *entitysource.Entity) []string {
-	if gvks, err := entity.GetProperty(propertyOLMGVK); err == nil {
+	if gvks, err := entity.GetProperty(PropertyOLMGVK); err == nil {
 		gvkArray := gjson.Parse(gvks).Array()
-		keys := make([]string, len(gvkArray))
-		for i, val := range gvkArray {
-			gvk := fmt.Sprintf("%s/%s/%s", val.Get("group"), val.Get("version"), val.Get("kind"))
-			keys[i] = gvk
+		keys := make([]string, 0, len(gvkArray))
+		for _, val := range gvkArray {
+			var group = val.Get("group")
+			var version = val.Get("version")
+			var kind = val.Get("kind")
+			if group.String() != "" && version.String() != "" && kind.String() != "" {
+				gvk := fmt.Sprintf("%s/%s/%s", group, version, kind)
+				keys = append(keys, gvk)
+			}
 		}
 		return keys
 	}
@@ -279,7 +286,7 @@ func gvkGroupFunction(entity *entitysource.Entity) []string {
 }
 
 func packageGroupFunction(entity *entitysource.Entity) []string {
-	if packageName, err := entity.GetProperty(propertyOLMPackageName); err == nil {
+	if packageName, err := entity.GetProperty(PropertyOLMPackageName); err == nil {
 		return []string{packageName}
 	}
 	return nil
@@ -295,4 +302,28 @@ func toSatIdentifier(ids ...entitysource.EntityID) []sat.Identifier {
 		satIds[i] = sat.Identifier(ids[i])
 	}
 	return satIds
+}
+
+func getPropertyOrNotFound(entity *entitysource.Entity, propertyName string) string {
+	value, err := entity.GetProperty(propertyName)
+	if err != nil {
+		return propertyNotFound
+	}
+	return value
+}
+
+// compareProperty compares two entity property values. It works as strings.Compare
+// except when one of the properties is not found (""). It computes not found properties as higher than found.
+// If p1 is not found, it returns 1, if p2 is not found it returns -1
+func compareProperty(p1, p2 string) int {
+	if p1 == p2 {
+		return 0
+	}
+	if p1 == propertyNotFound {
+		return 1
+	}
+	if p2 == propertyNotFound {
+		return -1
+	}
+	return strings.Compare(p1, p2)
 }
