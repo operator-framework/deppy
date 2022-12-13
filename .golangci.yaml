@@ -28,14 +28,6 @@ linters-settings:
 
   importas:
     alias:
-    - pkg: k8s.io/api/core/v1
-      alias: corev1
-    - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
-      alias: metav1
-    - pkg: k8s.io/apimachinery/pkg/api/errors
-      alias: apierrors
-    - pkg: github.com/operator-framework/deppy/api/v1alpha1
-      alias: deppyv1alpha1
   goimports:
     local-prefixes: github.com/operator-framework/deppy
 
