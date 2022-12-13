@@ -15,7 +15,5 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version-file: "go.mod"
-      - name: Install deppy
-        run: make deploy
       - name: Run the e2e suite
         run: make e2e
