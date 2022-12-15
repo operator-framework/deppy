@@ -7,13 +7,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/operator-framework/deppy/pkg/constraints"
 	"github.com/operator-framework/deppy/pkg/entitysource"
 	"github.com/operator-framework/deppy/pkg/sat"
+	"github.com/operator-framework/deppy/pkg/variablesource"
 )
 
 var _ entitysource.EntitySource = &Sudoku{}
-var _ constraints.ConstraintGenerator = &Sudoku{}
+var _ variablesource.VariableSource = &Sudoku{}
 
 type Sudoku struct {
 	*entitysource.CacheQuerier
@@ -49,7 +49,7 @@ func NewSudoku() *Sudoku {
 
 func (s Sudoku) GetVariables(ctx context.Context, querier entitysource.EntityQuerier) ([]sat.Variable, error) {
 	// adapted from: https://github.com/go-air/gini/blob/871d828a26852598db2b88f436549634ba9533ff/sudoku_test.go#L10
-	variables := make(map[sat.Identifier]*constraints.Variable, 0)
+	variables := make(map[sat.Identifier]*variablesource.Variable, 0)
 	inorder := make([]sat.Variable, 0)
 	rand.Seed(time.Now().UnixNano())
 
@@ -57,7 +57,7 @@ func (s Sudoku) GetVariables(ctx context.Context, querier entitysource.EntityQue
 	for row := 0; row < 9; row++ {
 		for col := 0; col < 9; col++ {
 			for n := 0; n < 9; n++ {
-				variable := constraints.NewVariable(sat.Identifier(GetID(row, col, n)))
+				variable := variablesource.NewVariable(sat.Identifier(GetID(row, col, n)))
 				variables[variable.Identifier()] = variable
 				inorder = append(inorder, variable)
 			}
@@ -76,7 +76,7 @@ func (s Sudoku) GetVariables(ctx context.Context, querier entitysource.EntityQue
 
 			// create clause that the particular position has a number
 			varID := sat.Identifier(fmt.Sprintf("%d-%d has a number", row, col))
-			variable := constraints.NewVariable(varID, sat.Mandatory(), sat.Dependency(ids...))
+			variable := variablesource.NewVariable(varID, sat.Mandatory(), sat.Dependency(ids...))
 			variables[varID] = variable
 			inorder = append(inorder, variable)
 		}

@@ -4,12 +4,12 @@ import (
 	"context"
 	"strings"
 
-	"github.com/operator-framework/deppy/pkg/constraints"
 	"github.com/operator-framework/deppy/pkg/entitysource"
 	"github.com/operator-framework/deppy/pkg/sat"
+	"github.com/operator-framework/deppy/pkg/variablesource"
 )
 
-var _ constraints.ConstraintGenerator = &ConstraintGenerator{}
+var _ variablesource.VariableSource = &ConstraintGenerator{}
 
 type ConstraintGenerator struct {
 	dimacs *Dimacs
@@ -22,10 +22,10 @@ func NewDimacsConstraintGenerator(dimacs *Dimacs) *ConstraintGenerator {
 }
 
 func (d *ConstraintGenerator) GetVariables(ctx context.Context, querier entitysource.EntityQuerier) ([]sat.Variable, error) {
-	varMap := make(map[entitysource.EntityID]*constraints.Variable, len(d.dimacs.variables))
+	varMap := make(map[entitysource.EntityID]*variablesource.Variable, len(d.dimacs.variables))
 	variables := make([]sat.Variable, 0, len(d.dimacs.variables))
 	if err := querier.Iterate(ctx, func(entity *entitysource.Entity) error {
-		variable := constraints.NewVariable(sat.Identifier(entity.ID()))
+		variable := variablesource.NewVariable(sat.Identifier(entity.ID()))
 		variables = append(variables, variable)
 		varMap[entity.ID()] = variable
 		return nil

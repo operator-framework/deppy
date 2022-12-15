@@ -1,4 +1,4 @@
-package constraints
+package variablesource
 
 import "github.com/operator-framework/deppy/pkg/sat"
 
