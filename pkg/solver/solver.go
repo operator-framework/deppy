@@ -25,19 +25,19 @@ type Solver interface {
 // DeppySolver is a simple solver implementation that takes an entity source group and a constraint aggregator
 // to produce a Solution (or error if no solution can be found)
 type DeppySolver struct {
-	entitySourceGroup    *entitysource.Group
-	constraintAggregator *variablesource.VariableAggregator
+	entitySource   entitysource.EntitySource
+	variableSource variablesource.VariableSource
 }
 
-func NewDeppySolver(entitySourceGroup *entitysource.Group, constraintAggregator *variablesource.VariableAggregator) (*DeppySolver, error) {
+func NewDeppySolver(entitySource entitysource.EntitySource, variableSource variablesource.VariableSource) (*DeppySolver, error) {
 	return &DeppySolver{
-		entitySourceGroup:    entitySourceGroup,
-		constraintAggregator: constraintAggregator,
+		entitySource:   entitySource,
+		variableSource: variableSource,
 	}, nil
 }
 
 func (d DeppySolver) Solve(ctx context.Context) (Solution, error) {
-	vars, err := d.constraintAggregator.GetVariables(ctx, d.entitySourceGroup)
+	vars, err := d.variableSource.GetVariables(ctx, d.entitySource)
 	if err != nil {
 		return nil, err
 	}
@@ -54,12 +54,12 @@ func (d DeppySolver) Solve(ctx context.Context) (Solution, error) {
 
 	solution := Solution{}
 	for _, variable := range vars {
-		if entity := d.entitySourceGroup.Get(ctx, entitysource.EntityID(variable.Identifier())); entity != nil {
+		if entity := d.entitySource.Get(ctx, entitysource.EntityID(variable.Identifier())); entity != nil {
 			solution[entity.ID()] = false
 		}
 	}
 	for _, variable := range selection {
-		if entity := d.entitySourceGroup.Get(ctx, entitysource.EntityID(variable.Identifier())); entity != nil {
+		if entity := d.entitySource.Get(ctx, entitysource.EntityID(variable.Identifier())); entity != nil {
 			solution[entity.ID()] = true
 		}
 	}

@@ -32,8 +32,8 @@ type requirePackage struct {
 	channel      string
 }
 
-func (r *requirePackage) GetVariables(ctx context.Context, querier entitysource.EntityQuerier) ([]sat.Variable, error) {
-	resultSet, err := querier.Filter(ctx, entitysource.And(
+func (r *requirePackage) GetVariables(ctx context.Context, entitySource entitysource.EntitySource) ([]sat.Variable, error) {
+	resultSet, err := entitySource.Filter(ctx, entitysource.And(
 		withPackageName(r.packageName),
 		withinVersion(r.versionRange),
 		withChannel(r.channel)))
@@ -65,8 +65,8 @@ type uniqueness struct {
 	groupByFn entitysource.GroupByFunction
 }
 
-func (u *uniqueness) GetVariables(ctx context.Context, querier entitysource.EntityQuerier) ([]sat.Variable, error) {
-	resultSet, err := querier.GroupBy(ctx, u.groupByFn)
+func (u *uniqueness) GetVariables(ctx context.Context, entitySource entitysource.EntitySource) ([]sat.Variable, error) {
+	resultSet, err := entitySource.GroupBy(ctx, u.groupByFn)
 	if err != nil || len(resultSet) == 0 {
 		return nil, err
 	}
@@ -106,8 +106,8 @@ type packageDependency struct {
 	versionRange string
 }
 
-func (p *packageDependency) GetVariables(ctx context.Context, querier entitysource.EntityQuerier) ([]sat.Variable, error) {
-	entities, err := querier.Filter(ctx, entitysource.And(withPackageName(p.packageName), withinVersion(p.versionRange)))
+func (p *packageDependency) GetVariables(ctx context.Context, entitySource entitysource.EntitySource) ([]sat.Variable, error) {
+	entities, err := entitySource.Filter(ctx, entitysource.And(withPackageName(p.packageName), withinVersion(p.versionRange)))
 	if err != nil || len(entities) == 0 {
 		return nil, err
 	}
@@ -133,8 +133,8 @@ type gvkDependency struct {
 	kind    string
 }
 
-func (g *gvkDependency) GetVariables(ctx context.Context, querier entitysource.EntityQuerier) ([]sat.Variable, error) {
-	entities, err := querier.Filter(ctx, entitysource.And(withExportsGVK(g.group, g.version, g.kind)))
+func (g *gvkDependency) GetVariables(ctx context.Context, entitySource entitysource.EntitySource) ([]sat.Variable, error) {
+	entities, err := entitySource.Filter(ctx, entitysource.And(withExportsGVK(g.group, g.version, g.kind)))
 	if err != nil || len(entities) == 0 {
 		return nil, err
 	}

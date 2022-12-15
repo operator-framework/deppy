@@ -2,27 +2,27 @@ package entitysource
 
 import "context"
 
-var _ EntityQuerier = &CacheQuerier{}
+var _ EntitySource = &CacheEntitySource{}
 
-type CacheQuerier struct {
+type CacheEntitySource struct {
 	// TODO: separate out a cache
 	entities map[EntityID]Entity
 }
 
-func NewCacheQuerier(entities map[EntityID]Entity) *CacheQuerier {
-	return &CacheQuerier{
+func NewCacheQuerier(entities map[EntityID]Entity) *CacheEntitySource {
+	return &CacheEntitySource{
 		entities: entities,
 	}
 }
 
-func (c CacheQuerier) Get(_ context.Context, id EntityID) *Entity {
+func (c CacheEntitySource) Get(_ context.Context, id EntityID) *Entity {
 	if entity, ok := c.entities[id]; ok {
 		return &entity
 	}
 	return nil
 }
 
-func (c CacheQuerier) Filter(_ context.Context, filter Predicate) (EntityList, error) {
+func (c CacheEntitySource) Filter(_ context.Context, filter Predicate) (EntityList, error) {
 	resultSet := EntityList{}
 	for _, entity := range c.entities {
 		if filter(&entity) {
@@ -32,7 +32,7 @@ func (c CacheQuerier) Filter(_ context.Context, filter Predicate) (EntityList, e
 	return resultSet, nil
 }
 
-func (c CacheQuerier) GroupBy(_ context.Context, fn GroupByFunction) (EntityListMap, error) {
+func (c CacheEntitySource) GroupBy(_ context.Context, fn GroupByFunction) (EntityListMap, error) {
 	resultSet := EntityListMap{}
 	for _, entity := range c.entities {
 		keys := fn(&entity)
@@ -43,7 +43,7 @@ func (c CacheQuerier) GroupBy(_ context.Context, fn GroupByFunction) (EntityList
 	return resultSet, nil
 }
 
-func (c CacheQuerier) Iterate(_ context.Context, fn IteratorFunction) error {
+func (c CacheEntitySource) Iterate(_ context.Context, fn IteratorFunction) error {
 	for _, entity := range c.entities {
 		if err := fn(&entity); err != nil {
 			return err

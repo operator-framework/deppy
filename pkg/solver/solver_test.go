@@ -16,11 +16,10 @@ import (
 
 type EntitySourceStruct struct {
 	variables []sat.Variable
-	entitysource.EntityQuerier
-	entitysource.EntityContentGetter
+	entitysource.EntitySource
 }
 
-func (c EntitySourceStruct) GetVariables(_ context.Context, _ entitysource.EntityQuerier) ([]sat.Variable, error) {
+func (c EntitySourceStruct) GetVariables(_ context.Context, _ entitysource.EntitySource) ([]sat.Variable, error) {
 	return c.variables, nil
 }
 
@@ -31,9 +30,8 @@ func NewEntitySource(variables []sat.Variable) *EntitySourceStruct {
 		entities[entityID] = *entitysource.NewEntity(entityID, map[string]string{"x": "y"})
 	}
 	return &EntitySourceStruct{
-		variables:           variables,
-		EntityQuerier:       entitysource.NewCacheQuerier(entities),
-		EntityContentGetter: entitysource.NoContentSource(),
+		variables:    variables,
+		EntitySource: entitysource.NewCacheQuerier(entities),
 	}
 }
 
@@ -44,7 +42,7 @@ var _ = Describe("Entity", func() {
 			variablesource.NewVariable("2"),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), variablesource.NewVariableAggregator(s))
+		so, err := solver.NewDeppySolver(s, s)
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
 		Expect(err).To(BeNil())
@@ -60,7 +58,7 @@ var _ = Describe("Entity", func() {
 			variablesource.NewVariable("2", sat.Mandatory()),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), variablesource.NewVariableAggregator(s))
+		so, err := solver.NewDeppySolver(s, s)
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
 		Expect(err).To(BeNil())
@@ -78,7 +76,7 @@ var _ = Describe("Entity", func() {
 		}
 		s := NewEntitySource(variables)
 
-		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), variablesource.NewVariableAggregator(s))
+		so, err := solver.NewDeppySolver(s, s)
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
 		Expect(err).To(BeNil())
@@ -96,7 +94,7 @@ var _ = Describe("Entity", func() {
 			variablesource.NewVariable("3"),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), variablesource.NewVariableAggregator(s))
+		so, err := solver.NewDeppySolver(s, s)
 		Expect(err).To(BeNil())
 		_, err = so.Solve(context.Background())
 		Expect(err).Should(HaveOccurred())
@@ -109,7 +107,7 @@ var _ = Describe("Entity", func() {
 			variablesource.NewVariable("3", sat.Prohibited()),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), variablesource.NewVariableAggregator(s))
+		so, err := solver.NewDeppySolver(s, s)
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
 		Expect(err).To(BeNil())
@@ -128,7 +126,7 @@ var _ = Describe("Entity", func() {
 			variablesource.NewVariable("4"),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), variablesource.NewVariableAggregator(s))
+		so, err := solver.NewDeppySolver(s, s)
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
 		Expect(err).To(BeNil())
@@ -148,7 +146,7 @@ var _ = Describe("Entity", func() {
 			variablesource.NewVariable("4"),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), variablesource.NewVariableAggregator(s))
+		so, err := solver.NewDeppySolver(s, s)
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
 		Expect(err).To(BeNil())
@@ -170,7 +168,7 @@ var _ = Describe("Entity", func() {
 			variablesource.NewVariable("6"),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), variablesource.NewVariableAggregator(s))
+		so, err := solver.NewDeppySolver(s, s)
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
 		Expect(err).To(BeNil())
