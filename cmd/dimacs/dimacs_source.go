@@ -7,8 +7,7 @@ import (
 var _ entitysource.EntitySource = &EntitySource{}
 
 type EntitySource struct {
-	*entitysource.CacheQuerier
-	entitysource.EntityContentGetter
+	*entitysource.CacheEntitySource
 }
 
 func NewDimacsEntitySource(dimacs *Dimacs) *EntitySource {
@@ -19,7 +18,6 @@ func NewDimacsEntitySource(dimacs *Dimacs) *EntitySource {
 	}
 
 	return &EntitySource{
-		CacheQuerier:        entitysource.NewCacheQuerier(entities),
-		EntityContentGetter: entitysource.NoContentSource(),
+		CacheEntitySource: entitysource.NewCacheQuerier(entities),
 	}
 }

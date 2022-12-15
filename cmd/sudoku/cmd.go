@@ -6,9 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/deppy/pkg/entitysource"
 	"github.com/operator-framework/deppy/pkg/solver"
-	"github.com/operator-framework/deppy/pkg/variablesource"
 )
 
 func NewSudokuCommand() *cobra.Command {
@@ -24,7 +22,7 @@ func NewSudokuCommand() *cobra.Command {
 func solve() error {
 	// build solver
 	sudoku := NewSudoku()
-	so, err := solver.NewDeppySolver(entitysource.NewGroup(sudoku), variablesource.NewVariableAggregator(sudoku))
+	so, err := solver.NewDeppySolver(sudoku, sudoku)
 	if err != nil {
 		return err
 	}

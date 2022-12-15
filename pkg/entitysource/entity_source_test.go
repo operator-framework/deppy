@@ -12,18 +12,6 @@ import (
 	"github.com/operator-framework/deppy/pkg/entitysource"
 )
 
-type TestEntitySource struct {
-	entitysource.EntityQuerier
-	entitysource.EntityContentGetter
-}
-
-func NewTestEntitySource(entities map[entitysource.EntityID]entitysource.Entity) *TestEntitySource {
-	return &TestEntitySource{
-		EntityQuerier:       entitysource.NewCacheQuerier(entities),
-		EntityContentGetter: entitysource.NoContentSource(),
-	}
-}
-
 // Test functions for filter
 func byIndex(index string) entitysource.Predicate {
 	return func(entity *entitysource.Entity) bool {
@@ -79,24 +67,22 @@ func bySourceAndIndex(entity *entitysource.Entity) []string {
 var _ = Describe("EntitySource", func() {
 	When("a group is created with multiple entity sources", func() {
 		var (
-			group entitysource.EntitySource
+			entitySource entitysource.EntitySource
 		)
 
 		BeforeEach(func() {
-			entities1 := map[entitysource.EntityID]entitysource.Entity{
+			entities := map[entitysource.EntityID]entitysource.Entity{
 				entitysource.EntityID("1-1"): *entitysource.NewEntity("1-1", map[string]string{"source": "1", "index": "1"}),
 				entitysource.EntityID("1-2"): *entitysource.NewEntity("1-2", map[string]string{"source": "1", "index": "2"}),
-			}
-			entities2 := map[entitysource.EntityID]entitysource.Entity{
 				entitysource.EntityID("2-1"): *entitysource.NewEntity("2-1", map[string]string{"source": "2", "index": "1"}),
 				entitysource.EntityID("2-2"): *entitysource.NewEntity("2-2", map[string]string{"source": "2", "index": "2"}),
 			}
-			group = entitysource.NewGroup(NewTestEntitySource(entities1), NewTestEntitySource(entities2))
+			entitySource = entitysource.NewCacheQuerier(entities)
 		})
 
 		Describe("Get", func() {
 			It("should return requested entity", func() {
-				e := group.Get(context.Background(), "2-2")
+				e := entitySource.Get(context.Background(), "2-2")
 				Expect(e).NotTo(BeNil())
 				Expect(e.ID()).To(Equal(entitysource.EntityID("2-2")))
 			})
@@ -107,7 +93,7 @@ var _ = Describe("EntitySource", func() {
 				id := func(element interface{}) string {
 					return fmt.Sprintf("%v", element)
 				}
-				el, err := group.Filter(context.Background(), entitysource.Or(byIndex("2"), bySource("1")))
+				el, err := entitySource.Filter(context.Background(), entitysource.Or(byIndex("2"), bySource("1")))
 				Expect(err).To(BeNil())
 				Expect(el).To(MatchAllElements(id, Elements{
 					"{1-2 map[index:2 source:1]}": Not(BeNil()),
@@ -122,7 +108,7 @@ var _ = Describe("EntitySource", func() {
 					"1-1": Not(BeNil()),
 				}))
 
-				el, err = group.Filter(context.Background(), entitysource.And(byIndex("2"), bySource("1")))
+				el, err = entitySource.Filter(context.Background(), entitysource.And(byIndex("2"), bySource("1")))
 				Expect(err).To(BeNil())
 				Expect(el).To(MatchAllElements(id, Elements{
 					"{1-2 map[index:2 source:1]}": Not(BeNil()),
@@ -133,7 +119,7 @@ var _ = Describe("EntitySource", func() {
 					"1-2": Not(BeNil()),
 				}))
 
-				el, err = group.Filter(context.Background(), entitysource.And(byIndex("2"), entitysource.Not(bySource("1"))))
+				el, err = entitySource.Filter(context.Background(), entitysource.And(byIndex("2"), entitysource.Not(bySource("1"))))
 				Expect(err).To(BeNil())
 				Expect(el).To(MatchAllElements(id, Elements{
 					"{2-2 map[index:2 source:2]}": Not(BeNil()),
@@ -150,7 +136,7 @@ var _ = Describe("EntitySource", func() {
 		Describe("Iterate", func() {
 			It("should go through all entities", func() {
 				entityCheck = map[entitysource.EntityID]bool{"1-1": false, "1-2": false, "2-1": false, "2-2": false}
-				err := group.Iterate(context.Background(), check)
+				err := entitySource.Iterate(context.Background(), check)
 				Expect(err).To(BeNil())
 				for _, value := range entityCheck {
 					Expect(value).To(BeTrue())
@@ -163,7 +149,7 @@ var _ = Describe("EntitySource", func() {
 				id := func(element interface{}) string {
 					return fmt.Sprintf("%v", element)
 				}
-				grouped, err := group.GroupBy(context.Background(), bySourceAndIndex)
+				grouped, err := entitySource.GroupBy(context.Background(), bySourceAndIndex)
 				Expect(err).To(BeNil())
 				Expect(grouped).To(MatchAllKeys(Keys{
 					"index 1":  Not(BeNil()),

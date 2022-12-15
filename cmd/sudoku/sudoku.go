@@ -16,8 +16,7 @@ var _ entitysource.EntitySource = &Sudoku{}
 var _ variablesource.VariableSource = &Sudoku{}
 
 type Sudoku struct {
-	*entitysource.CacheQuerier
-	entitysource.EntityContentGetter
+	*entitysource.CacheEntitySource
 }
 
 func GetID(row int, col int, num int) entitysource.EntityID {
@@ -42,12 +41,11 @@ func NewSudoku() *Sudoku {
 		}
 	}
 	return &Sudoku{
-		CacheQuerier:        entitysource.NewCacheQuerier(entities),
-		EntityContentGetter: entitysource.NoContentSource(),
+		CacheEntitySource: entitysource.NewCacheQuerier(entities),
 	}
 }
 
-func (s Sudoku) GetVariables(ctx context.Context, querier entitysource.EntityQuerier) ([]sat.Variable, error) {
+func (s Sudoku) GetVariables(ctx context.Context, _ entitysource.EntitySource) ([]sat.Variable, error) {
 	// adapted from: https://github.com/go-air/gini/blob/871d828a26852598db2b88f436549634ba9533ff/sudoku_test.go#L10
 	variables := make(map[sat.Identifier]*variablesource.Variable, 0)
 	inorder := make([]sat.Variable, 0)

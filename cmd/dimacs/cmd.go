@@ -8,9 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/deppy/pkg/entitysource"
 	"github.com/operator-framework/deppy/pkg/solver"
-	"github.com/operator-framework/deppy/pkg/variablesource"
 )
 
 func NewDimacsCommand() *cobra.Command {
@@ -55,7 +53,7 @@ func solve(path string) error {
 	}
 
 	// build solver
-	so, err := solver.NewDeppySolver(entitysource.NewGroup(NewDimacsEntitySource(dimacs)), variablesource.NewVariableAggregator(NewDimacsConstraintGenerator(dimacs)))
+	so, err := solver.NewDeppySolver(NewDimacsEntitySource(dimacs), NewDimacsVariableSource(dimacs))
 	if err != nil {
 		return err
 	}
