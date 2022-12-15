@@ -1,7 +1,7 @@
 package dimacs
 
 import (
-	"github.com/operator-framework/deppy/internal/entitysource"
+	"github.com/operator-framework/deppy/pkg/entitysource"
 )
 
 var _ entitysource.EntitySource = &EntitySource{}

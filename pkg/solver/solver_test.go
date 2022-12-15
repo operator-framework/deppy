@@ -8,10 +8,10 @@ import (
 
 	. "github.com/onsi/gomega/gstruct"
 
-	"github.com/operator-framework/deppy/internal/constraints"
-	"github.com/operator-framework/deppy/internal/entitysource"
-	"github.com/operator-framework/deppy/internal/sat"
-	"github.com/operator-framework/deppy/internal/solver"
+	"github.com/operator-framework/deppy/pkg/constraints"
+	"github.com/operator-framework/deppy/pkg/entitysource"
+	"github.com/operator-framework/deppy/pkg/sat"
+	"github.com/operator-framework/deppy/pkg/solver"
 )
 
 type EntitySourceStruct struct {
