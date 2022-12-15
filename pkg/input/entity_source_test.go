@@ -1,4 +1,4 @@
-package entitysource_test
+package input_test
 
 import (
 	"context"
@@ -7,16 +7,18 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	. "github.com/onsi/gomega/gstruct"
+	"github.com/operator-framework/deppy/pkg/input"
 
-	"github.com/operator-framework/deppy/pkg/entitysource"
+	"github.com/operator-framework/deppy/pkg/solver"
+
+	. "github.com/onsi/gomega/gstruct"
 )
 
 // Test functions for filter
-func byIndex(index string) entitysource.Predicate {
-	return func(entity *entitysource.Entity) bool {
-		i, err := entity.GetProperty("index")
-		if err != nil {
+func byIndex(index string) input.Predicate {
+	return func(entity *input.Entity) bool {
+		i, ok := entity.Properties["index"]
+		if !ok {
 			return false
 		}
 		if i == index {
@@ -25,10 +27,10 @@ func byIndex(index string) entitysource.Predicate {
 		return false
 	}
 }
-func bySource(source string) entitysource.Predicate {
-	return func(entity *entitysource.Entity) bool {
-		i, err := entity.GetProperty("source")
-		if err != nil {
+func bySource(source string) input.Predicate {
+	return func(entity *input.Entity) bool {
+		i, ok := entity.Properties["source"]
+		if !ok {
 			return false
 		}
 		if i == source {
@@ -39,19 +41,19 @@ func bySource(source string) entitysource.Predicate {
 }
 
 // Test function for iterate
-var entityCheck map[entitysource.EntityID]bool
+var entityCheck map[solver.Identifier]bool
 
-func check(entity *entitysource.Entity) error {
-	checked, ok := entityCheck[entity.ID()]
+func check(entity *input.Entity) error {
+	checked, ok := entityCheck[entity.Identifier()]
 	Expect(ok).Should(BeTrue())
 	Expect(checked).Should(BeFalse())
-	entityCheck[entity.ID()] = true
+	entityCheck[entity.Identifier()] = true
 	return nil
 }
 
 // Test function for GroupBy
-func bySourceAndIndex(entity *entitysource.Entity) []string {
-	switch entity.ID() {
+func bySourceAndIndex(entity *input.Entity) []string {
+	switch entity.Identifier() {
 	case "1-1":
 		return []string{"source 1", "index 1"}
 	case "1-2":
@@ -67,24 +69,24 @@ func bySourceAndIndex(entity *entitysource.Entity) []string {
 var _ = Describe("EntitySource", func() {
 	When("a group is created with multiple entity sources", func() {
 		var (
-			entitySource entitysource.EntitySource
+			entitySource input.EntitySource
 		)
 
 		BeforeEach(func() {
-			entities := map[entitysource.EntityID]entitysource.Entity{
-				entitysource.EntityID("1-1"): *entitysource.NewEntity("1-1", map[string]string{"source": "1", "index": "1"}),
-				entitysource.EntityID("1-2"): *entitysource.NewEntity("1-2", map[string]string{"source": "1", "index": "2"}),
-				entitysource.EntityID("2-1"): *entitysource.NewEntity("2-1", map[string]string{"source": "2", "index": "1"}),
-				entitysource.EntityID("2-2"): *entitysource.NewEntity("2-2", map[string]string{"source": "2", "index": "2"}),
+			entities := map[solver.Identifier]input.Entity{
+				solver.Identifier("1-1"): *input.NewEntity("1-1", map[string]string{"source": "1", "index": "1"}),
+				solver.Identifier("1-2"): *input.NewEntity("1-2", map[string]string{"source": "1", "index": "2"}),
+				solver.Identifier("2-1"): *input.NewEntity("2-1", map[string]string{"source": "2", "index": "1"}),
+				solver.Identifier("2-2"): *input.NewEntity("2-2", map[string]string{"source": "2", "index": "2"}),
 			}
-			entitySource = entitysource.NewCacheQuerier(entities)
+			entitySource = input.NewCacheQuerier(entities)
 		})
 
 		Describe("Get", func() {
 			It("should return requested entity", func() {
 				e := entitySource.Get(context.Background(), "2-2")
 				Expect(e).NotTo(BeNil())
-				Expect(e.ID()).To(Equal(entitysource.EntityID("2-2")))
+				Expect(e.Identifier()).To(Equal(solver.Identifier("2-2")))
 			})
 		})
 
@@ -93,7 +95,7 @@ var _ = Describe("EntitySource", func() {
 				id := func(element interface{}) string {
 					return fmt.Sprintf("%v", element)
 				}
-				el, err := entitySource.Filter(context.Background(), entitysource.Or(byIndex("2"), bySource("1")))
+				el, err := entitySource.Filter(context.Background(), input.Or(byIndex("2"), bySource("1")))
 				Expect(err).To(BeNil())
 				Expect(el).To(MatchAllElements(id, Elements{
 					"{1-2 map[index:2 source:1]}": Not(BeNil()),
@@ -108,7 +110,7 @@ var _ = Describe("EntitySource", func() {
 					"1-1": Not(BeNil()),
 				}))
 
-				el, err = entitySource.Filter(context.Background(), entitysource.And(byIndex("2"), bySource("1")))
+				el, err = entitySource.Filter(context.Background(), input.And(byIndex("2"), bySource("1")))
 				Expect(err).To(BeNil())
 				Expect(el).To(MatchAllElements(id, Elements{
 					"{1-2 map[index:2 source:1]}": Not(BeNil()),
@@ -119,7 +121,7 @@ var _ = Describe("EntitySource", func() {
 					"1-2": Not(BeNil()),
 				}))
 
-				el, err = entitySource.Filter(context.Background(), entitysource.And(byIndex("2"), entitysource.Not(bySource("1"))))
+				el, err = entitySource.Filter(context.Background(), input.And(byIndex("2"), input.Not(bySource("1"))))
 				Expect(err).To(BeNil())
 				Expect(el).To(MatchAllElements(id, Elements{
 					"{2-2 map[index:2 source:2]}": Not(BeNil()),
@@ -135,7 +137,7 @@ var _ = Describe("EntitySource", func() {
 
 		Describe("Iterate", func() {
 			It("should go through all entities", func() {
-				entityCheck = map[entitysource.EntityID]bool{"1-1": false, "1-2": false, "2-1": false, "2-2": false}
+				entityCheck = map[solver.Identifier]bool{"1-1": false, "1-2": false, "2-1": false, "2-2": false}
 				err := entitySource.Iterate(context.Background(), check)
 				Expect(err).To(BeNil())
 				for _, value := range entityCheck {

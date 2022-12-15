@@ -1,21 +1,25 @@
-package entitysource
+package input
 
-import "context"
+import (
+	"context"
+
+	"github.com/operator-framework/deppy/pkg/solver"
+)
 
 var _ EntitySource = &CacheEntitySource{}
 
 type CacheEntitySource struct {
 	// TODO: separate out a cache
-	entities map[EntityID]Entity
+	entities map[solver.Identifier]Entity
 }
 
-func NewCacheQuerier(entities map[EntityID]Entity) *CacheEntitySource {
+func NewCacheQuerier(entities map[solver.Identifier]Entity) *CacheEntitySource {
 	return &CacheEntitySource{
 		entities: entities,
 	}
 }
 
-func (c CacheEntitySource) Get(_ context.Context, id EntityID) *Entity {
+func (c CacheEntitySource) Get(_ context.Context, id solver.Identifier) *Entity {
 	if entity, ok := c.entities[id]; ok {
 		return &entity
 	}

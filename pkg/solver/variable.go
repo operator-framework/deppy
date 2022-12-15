@@ -1,4 +1,4 @@
-package sat
+package solver
 
 // Identifier values uniquely identify particular Variables within
 // the input to a single call to Solve.

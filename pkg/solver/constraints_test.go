@@ -1,4 +1,4 @@
-package sat
+package solver
 
 import (
 	"testing"
