@@ -9,9 +9,9 @@ import (
 	"github.com/blang/semver/v4"
 	"github.com/tidwall/gjson"
 
-	"github.com/operator-framework/deppy/pkg/constraints"
 	"github.com/operator-framework/deppy/pkg/entitysource"
 	"github.com/operator-framework/deppy/pkg/sat"
+	"github.com/operator-framework/deppy/pkg/variablesource"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 	propertyNotFound = ""
 )
 
-var _ constraints.ConstraintGenerator = &requirePackage{}
+var _ variablesource.VariableSource = &requirePackage{}
 
 type requirePackage struct {
 	packageName  string
@@ -43,12 +43,12 @@ func (r *requirePackage) GetVariables(ctx context.Context, querier entitysource.
 	ids := resultSet.Sort(byChannelAndVersion).CollectIds()
 	subject := subject("require", r.packageName, r.versionRange, r.channel)
 	return []sat.Variable{
-		constraints.NewVariable(subject, sat.Mandatory(), sat.Dependency(toSatIdentifier(ids...)...)),
+		variablesource.NewVariable(subject, sat.Mandatory(), sat.Dependency(toSatIdentifier(ids...)...)),
 	}, nil
 }
 
 // RequirePackage creates a constraint generator to describe that a package is wanted for installation
-func RequirePackage(packageName string, versionRange string, channel string) constraints.ConstraintGenerator {
+func RequirePackage(packageName string, versionRange string, channel string) variablesource.VariableSource {
 	return &requirePackage{
 		packageName:  packageName,
 		versionRange: versionRange,
@@ -56,7 +56,7 @@ func RequirePackage(packageName string, versionRange string, channel string) con
 	}
 }
 
-var _ constraints.ConstraintGenerator = &uniqueness{}
+var _ variablesource.VariableSource = &uniqueness{}
 
 type subjectFormatFn func(key string) sat.Identifier
 
@@ -73,13 +73,13 @@ func (u *uniqueness) GetVariables(ctx context.Context, querier entitysource.Enti
 	variables := make([]sat.Variable, 0, len(resultSet))
 	for key, entities := range resultSet {
 		ids := toSatIdentifier(entities.Sort(byChannelAndVersion).CollectIds()...)
-		variables = append(variables, constraints.NewVariable(u.subject(key), sat.AtMost(1, ids...)))
+		variables = append(variables, variablesource.NewVariable(u.subject(key), sat.AtMost(1, ids...)))
 	}
 	return variables, nil
 }
 
 // GVKUniqueness generates constraints describing that only a single bundle / gvk can be selected
-func GVKUniqueness() constraints.ConstraintGenerator {
+func GVKUniqueness() variablesource.VariableSource {
 	return &uniqueness{
 		subject:   uniquenessSubjectFormat,
 		groupByFn: gvkGroupFunction,
@@ -87,7 +87,7 @@ func GVKUniqueness() constraints.ConstraintGenerator {
 }
 
 // PackageUniqueness generates constraints describing that only a single bundle / package can be selected
-func PackageUniqueness() constraints.ConstraintGenerator {
+func PackageUniqueness() variablesource.VariableSource {
 	return &uniqueness{
 		subject:   uniquenessSubjectFormat,
 		groupByFn: packageGroupFunction,
@@ -98,7 +98,7 @@ func uniquenessSubjectFormat(key string) sat.Identifier {
 	return sat.IdentifierFromString(fmt.Sprintf("%s uniqueness", key))
 }
 
-var _ constraints.ConstraintGenerator = &packageDependency{}
+var _ variablesource.VariableSource = &packageDependency{}
 
 type packageDependency struct {
 	subject      sat.Identifier
@@ -112,11 +112,11 @@ func (p *packageDependency) GetVariables(ctx context.Context, querier entitysour
 		return nil, err
 	}
 	ids := toSatIdentifier(entities.Sort(byChannelAndVersion).CollectIds()...)
-	return []sat.Variable{constraints.NewVariable(p.subject, sat.Dependency(ids...))}, nil
+	return []sat.Variable{variablesource.NewVariable(p.subject, sat.Dependency(ids...))}, nil
 }
 
 // PackageDependency generates constraints to describe a package's dependency on another package
-func PackageDependency(subject sat.Identifier, packageName string, versionRange string) constraints.ConstraintGenerator {
+func PackageDependency(subject sat.Identifier, packageName string, versionRange string) variablesource.VariableSource {
 	return &packageDependency{
 		subject:      subject,
 		packageName:  packageName,
@@ -124,7 +124,7 @@ func PackageDependency(subject sat.Identifier, packageName string, versionRange 
 	}
 }
 
-var _ constraints.ConstraintGenerator = &gvkDependency{}
+var _ variablesource.VariableSource = &gvkDependency{}
 
 type gvkDependency struct {
 	subject sat.Identifier
@@ -139,11 +139,11 @@ func (g *gvkDependency) GetVariables(ctx context.Context, querier entitysource.E
 		return nil, err
 	}
 	ids := toSatIdentifier(entities.Sort(byChannelAndVersion).CollectIds()...)
-	return []sat.Variable{constraints.NewVariable(g.subject, sat.Dependency(ids...))}, nil
+	return []sat.Variable{variablesource.NewVariable(g.subject, sat.Dependency(ids...))}, nil
 }
 
 // GVKDependency generates constraints to describe a package's dependency on a gvk
-func GVKDependency(subject sat.Identifier, group string, version string, kind string) constraints.ConstraintGenerator {
+func GVKDependency(subject sat.Identifier, group string, version string, kind string) variablesource.VariableSource {
 	return &gvkDependency{
 		subject: subject,
 		group:   group,

@@ -3,9 +3,9 @@ package solver
 import (
 	"context"
 
-	"github.com/operator-framework/deppy/pkg/constraints"
 	"github.com/operator-framework/deppy/pkg/entitysource"
 	"github.com/operator-framework/deppy/pkg/sat"
+	"github.com/operator-framework/deppy/pkg/variablesource"
 )
 
 var _ Solver = &DeppySolver{}
@@ -26,10 +26,10 @@ type Solver interface {
 // to produce a Solution (or error if no solution can be found)
 type DeppySolver struct {
 	entitySourceGroup    *entitysource.Group
-	constraintAggregator *constraints.ConstraintAggregator
+	constraintAggregator *variablesource.VariableAggregator
 }
 
-func NewDeppySolver(entitySourceGroup *entitysource.Group, constraintAggregator *constraints.ConstraintAggregator) (*DeppySolver, error) {
+func NewDeppySolver(entitySourceGroup *entitysource.Group, constraintAggregator *variablesource.VariableAggregator) (*DeppySolver, error) {
 	return &DeppySolver{
 		entitySourceGroup:    entitySourceGroup,
 		constraintAggregator: constraintAggregator,

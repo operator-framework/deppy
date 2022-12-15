@@ -8,10 +8,10 @@ import (
 
 	. "github.com/onsi/gomega/gstruct"
 
-	"github.com/operator-framework/deppy/pkg/constraints"
 	"github.com/operator-framework/deppy/pkg/entitysource"
 	"github.com/operator-framework/deppy/pkg/sat"
 	"github.com/operator-framework/deppy/pkg/solver"
+	"github.com/operator-framework/deppy/pkg/variablesource"
 )
 
 type EntitySourceStruct struct {
@@ -40,11 +40,11 @@ func NewEntitySource(variables []sat.Variable) *EntitySourceStruct {
 var _ = Describe("Entity", func() {
 	It("should select a mandatory entity", func() {
 		variables := []sat.Variable{
-			constraints.NewVariable("1", sat.Mandatory()),
-			constraints.NewVariable("2"),
+			variablesource.NewVariable("1", sat.Mandatory()),
+			variablesource.NewVariable("2"),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), constraints.NewConstraintAggregator(s))
+		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), variablesource.NewVariableAggregator(s))
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
 		Expect(err).To(BeNil())
@@ -56,11 +56,11 @@ var _ = Describe("Entity", func() {
 
 	It("should select two mandatory entities", func() {
 		variables := []sat.Variable{
-			constraints.NewVariable("1", sat.Mandatory()),
-			constraints.NewVariable("2", sat.Mandatory()),
+			variablesource.NewVariable("1", sat.Mandatory()),
+			variablesource.NewVariable("2", sat.Mandatory()),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), constraints.NewConstraintAggregator(s))
+		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), variablesource.NewVariableAggregator(s))
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
 		Expect(err).To(BeNil())
@@ -72,13 +72,13 @@ var _ = Describe("Entity", func() {
 
 	It("should select a mandatory entity and its dependency", func() {
 		variables := []sat.Variable{
-			constraints.NewVariable("1", sat.Mandatory(), sat.Dependency("2")),
-			constraints.NewVariable("2"),
-			constraints.NewVariable("3"),
+			variablesource.NewVariable("1", sat.Mandatory(), sat.Dependency("2")),
+			variablesource.NewVariable("2"),
+			variablesource.NewVariable("3"),
 		}
 		s := NewEntitySource(variables)
 
-		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), constraints.NewConstraintAggregator(s))
+		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), variablesource.NewVariableAggregator(s))
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
 		Expect(err).To(BeNil())
@@ -91,12 +91,12 @@ var _ = Describe("Entity", func() {
 
 	It("should fail when a dependency is prohibited", func() {
 		variables := []sat.Variable{
-			constraints.NewVariable("1", sat.Mandatory(), sat.Dependency("2")),
-			constraints.NewVariable("2", sat.Prohibited()),
-			constraints.NewVariable("3"),
+			variablesource.NewVariable("1", sat.Mandatory(), sat.Dependency("2")),
+			variablesource.NewVariable("2", sat.Prohibited()),
+			variablesource.NewVariable("3"),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), constraints.NewConstraintAggregator(s))
+		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), variablesource.NewVariableAggregator(s))
 		Expect(err).To(BeNil())
 		_, err = so.Solve(context.Background())
 		Expect(err).Should(HaveOccurred())
@@ -104,12 +104,12 @@ var _ = Describe("Entity", func() {
 
 	It("should select a mandatory entity and its dependency and ignore a non-mandatory prohibited variable", func() {
 		variables := []sat.Variable{
-			constraints.NewVariable("1", sat.Mandatory(), sat.Dependency("2")),
-			constraints.NewVariable("2"),
-			constraints.NewVariable("3", sat.Prohibited()),
+			variablesource.NewVariable("1", sat.Mandatory(), sat.Dependency("2")),
+			variablesource.NewVariable("2"),
+			variablesource.NewVariable("3", sat.Prohibited()),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), constraints.NewConstraintAggregator(s))
+		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), variablesource.NewVariableAggregator(s))
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
 		Expect(err).To(BeNil())
@@ -122,13 +122,13 @@ var _ = Describe("Entity", func() {
 
 	It("should not select 'or' paths that are prohibited", func() {
 		variables := []sat.Variable{
-			constraints.NewVariable("1", sat.Or("2", false, false), sat.Dependency("3")),
-			constraints.NewVariable("2", sat.Dependency("4")),
-			constraints.NewVariable("3", sat.Prohibited()),
-			constraints.NewVariable("4"),
+			variablesource.NewVariable("1", sat.Or("2", false, false), sat.Dependency("3")),
+			variablesource.NewVariable("2", sat.Dependency("4")),
+			variablesource.NewVariable("3", sat.Prohibited()),
+			variablesource.NewVariable("4"),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), constraints.NewConstraintAggregator(s))
+		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), variablesource.NewVariableAggregator(s))
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
 		Expect(err).To(BeNil())
@@ -142,13 +142,13 @@ var _ = Describe("Entity", func() {
 
 	It("should respect atMost constraint", func() {
 		variables := []sat.Variable{
-			constraints.NewVariable("1", sat.Or("2", false, false), sat.Dependency("3"), sat.Dependency("4")),
-			constraints.NewVariable("2", sat.Dependency("3")),
-			constraints.NewVariable("3", sat.AtMost(1, "3", "4")),
-			constraints.NewVariable("4"),
+			variablesource.NewVariable("1", sat.Or("2", false, false), sat.Dependency("3"), sat.Dependency("4")),
+			variablesource.NewVariable("2", sat.Dependency("3")),
+			variablesource.NewVariable("3", sat.AtMost(1, "3", "4")),
+			variablesource.NewVariable("4"),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), constraints.NewConstraintAggregator(s))
+		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), variablesource.NewVariableAggregator(s))
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
 		Expect(err).To(BeNil())
@@ -162,15 +162,15 @@ var _ = Describe("Entity", func() {
 
 	It("should respect dependency conflicts", func() {
 		variables := []sat.Variable{
-			constraints.NewVariable("1", sat.Or("2", false, false), sat.Dependency("3"), sat.Dependency("4")),
-			constraints.NewVariable("2", sat.Dependency("4"), sat.Dependency("5")),
-			constraints.NewVariable("3", sat.Conflict("6")),
-			constraints.NewVariable("4", sat.Dependency("6")),
-			constraints.NewVariable("5"),
-			constraints.NewVariable("6"),
+			variablesource.NewVariable("1", sat.Or("2", false, false), sat.Dependency("3"), sat.Dependency("4")),
+			variablesource.NewVariable("2", sat.Dependency("4"), sat.Dependency("5")),
+			variablesource.NewVariable("3", sat.Conflict("6")),
+			variablesource.NewVariable("4", sat.Dependency("6")),
+			variablesource.NewVariable("5"),
+			variablesource.NewVariable("6"),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), constraints.NewConstraintAggregator(s))
+		so, err := solver.NewDeppySolver(entitysource.NewGroup(s), variablesource.NewVariableAggregator(s))
 		Expect(err).To(BeNil())
 		solution, err := so.Solve(context.Background())
 		Expect(err).To(BeNil())
