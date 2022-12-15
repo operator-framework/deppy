@@ -1,6 +1,6 @@
 package constraints
 
-import "github.com/operator-framework/deppy/internal/sat"
+import "github.com/operator-framework/deppy/pkg/sat"
 
 var _ sat.Variable = &Variable{}
 

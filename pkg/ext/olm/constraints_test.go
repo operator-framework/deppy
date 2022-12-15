@@ -13,8 +13,8 @@ import (
 
 	. "github.com/onsi/gomega/gstruct"
 
-	"github.com/operator-framework/deppy/internal/entitysource"
-	"github.com/operator-framework/deppy/internal/ext/olm"
+	"github.com/operator-framework/deppy/pkg/entitysource"
+	"github.com/operator-framework/deppy/pkg/ext/olm"
 )
 
 func TestConstraints(t *testing.T) {

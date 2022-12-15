@@ -4,9 +4,9 @@ import (
 	"context"
 	"strings"
 
-	"github.com/operator-framework/deppy/internal/constraints"
-	"github.com/operator-framework/deppy/internal/entitysource"
-	"github.com/operator-framework/deppy/internal/sat"
+	"github.com/operator-framework/deppy/pkg/constraints"
+	"github.com/operator-framework/deppy/pkg/entitysource"
+	"github.com/operator-framework/deppy/pkg/sat"
 )
 
 var _ constraints.ConstraintGenerator = &ConstraintGenerator{}

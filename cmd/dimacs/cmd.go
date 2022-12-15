@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/deppy/internal/constraints"
-	"github.com/operator-framework/deppy/internal/entitysource"
-	"github.com/operator-framework/deppy/internal/solver"
+	"github.com/operator-framework/deppy/pkg/constraints"
+	"github.com/operator-framework/deppy/pkg/entitysource"
+	"github.com/operator-framework/deppy/pkg/solver"
 )
 
 func NewDimacsCommand() *cobra.Command {

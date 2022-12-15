@@ -9,7 +9,7 @@ import (
 
 	. "github.com/onsi/gomega/gstruct"
 
-	"github.com/operator-framework/deppy/internal/entitysource"
+	"github.com/operator-framework/deppy/pkg/entitysource"
 )
 
 type TestEntitySource struct {
