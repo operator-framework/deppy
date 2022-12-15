@@ -7,12 +7,14 @@ import (
 	"github.com/go-air/gini/inter"
 	"github.com/go-air/gini/logic"
 	"github.com/go-air/gini/z"
+
+	"github.com/operator-framework/deppy/pkg/deppy"
 )
 
-type DuplicateIdentifier Identifier
+type DuplicateIdentifier deppy.Identifier
 
 func (e DuplicateIdentifier) Error() string {
-	return fmt.Sprintf("duplicate identifier %q in input", Identifier(e))
+	return fmt.Sprintf("duplicate identifier %q in input", deppy.Identifier(e))
 }
 
 type inconsistentLitMapping []error
@@ -25,10 +27,10 @@ func (inconsistentLitMapping) Error() string {
 // Solve (Constraints, Variables, etc.) and the variables that
 // appear in the SAT formula.
 type litMapping struct {
-	inorder     []Variable
-	variables   map[z.Lit]Variable
-	lits        map[Identifier]z.Lit
-	constraints map[z.Lit]AppliedConstraint
+	inorder     []deppy.Variable
+	variables   map[z.Lit]deppy.Variable
+	lits        map[deppy.Identifier]z.Lit
+	constraints map[z.Lit]deppy.AppliedConstraint
 	c           *logic.C
 	errs        inconsistentLitMapping
 }
@@ -37,12 +39,12 @@ type litMapping struct {
 // the provided slice of Variables. This includes construction of
 // the translation tables between Variables/Constraints and the
 // inputs to the underlying solver.
-func newLitMapping(variables []Variable) (*litMapping, error) {
+func newLitMapping(variables []deppy.Variable) (*litMapping, error) {
 	d := litMapping{
 		inorder:     variables,
-		variables:   make(map[z.Lit]Variable, len(variables)),
-		lits:        make(map[Identifier]z.Lit, len(variables)),
-		constraints: make(map[z.Lit]AppliedConstraint),
+		variables:   make(map[z.Lit]deppy.Variable, len(variables)),
+		lits:        make(map[deppy.Identifier]z.Lit, len(variables)),
+		constraints: make(map[z.Lit]deppy.AppliedConstraint),
 		c:           logic.NewCCap(len(variables)),
 	}
 
@@ -58,7 +60,7 @@ func newLitMapping(variables []Variable) (*litMapping, error) {
 
 	for _, variable := range variables {
 		for _, constraint := range variable.Constraints() {
-			m := constraint.apply(d.c, &d, variable.Identifier())
+			m := constraint.Apply(&d, variable.Identifier())
 			if m == z.LitNull {
 				// This constraint doesn't have a
 				// useful representation in the SAT
@@ -66,7 +68,7 @@ func newLitMapping(variables []Variable) (*litMapping, error) {
 				continue
 			}
 
-			d.constraints[m] = AppliedConstraint{
+			d.constraints[m] = deppy.AppliedConstraint{
 				Variable:   variable,
 				Constraint: constraint,
 			}
@@ -76,9 +78,15 @@ func newLitMapping(variables []Variable) (*litMapping, error) {
 	return &d, nil
 }
 
+// LogicCircuit returns the lit mappings internal logic circuit
+// used by constraint for translation into boolean expressions processed by the solver
+func (d *litMapping) LogicCircuit() *logic.C {
+	return d.c
+}
+
 // LitOf returns the positive literal corresponding to the Variable
 // with the given Identifier.
-func (d *litMapping) LitOf(id Identifier) z.Lit {
+func (d *litMapping) LitOf(id deppy.Identifier) z.Lit {
 	m, ok := d.lits[id]
 	if ok {
 		return m
@@ -89,7 +97,7 @@ func (d *litMapping) LitOf(id Identifier) z.Lit {
 
 // VariableOf returns the Variable corresponding to the provided
 // literal, or a zeroVariable if no such Variable exists.
-func (d *litMapping) VariableOf(m z.Lit) Variable {
+func (d *litMapping) VariableOf(m z.Lit) deppy.Variable {
 	i, ok := d.variables[m]
 	if ok {
 		return i
@@ -101,12 +109,12 @@ func (d *litMapping) VariableOf(m z.Lit) Variable {
 // ConstraintOf returns the constraint application corresponding to
 // the provided literal, or a zeroConstraint if no such constraint
 // exists.
-func (d *litMapping) ConstraintOf(m z.Lit) AppliedConstraint {
+func (d *litMapping) ConstraintOf(m z.Lit) deppy.AppliedConstraint {
 	if a, ok := d.constraints[m]; ok {
 		return a
 	}
 	d.errs = append(d.errs, fmt.Errorf("no constraint corresponding to %s", m))
-	return AppliedConstraint{
+	return deppy.AppliedConstraint{
 		Variable:   zeroVariable{},
 		Constraint: zeroConstraint{},
 	}
@@ -158,13 +166,13 @@ func (d *litMapping) CardinalityConstrainer(g inter.Adder, ms []z.Lit) *logic.Ca
 }
 
 // AnchorIdentifiers returns a slice containing the Identifiers of
-// every Variable with at least one "anchor" constraint, in the
-// order they appear in the input.
-func (d *litMapping) AnchorIdentifiers() []Identifier {
-	var ids []Identifier
+// every Variable with at least one "Anchor" constraint, in the
+// Order they appear in the input.
+func (d *litMapping) AnchorIdentifiers() []deppy.Identifier {
+	var ids []deppy.Identifier
 	for _, variable := range d.inorder {
 		for _, constraint := range variable.Constraints() {
-			if constraint.anchor() {
+			if constraint.Anchor() {
 				ids = append(ids, variable.Identifier())
 				break
 			}
@@ -173,8 +181,8 @@ func (d *litMapping) AnchorIdentifiers() []Identifier {
 	return ids
 }
 
-func (d *litMapping) Variables(g inter.S) []Variable {
-	var result []Variable
+func (d *litMapping) Variables(g inter.S) []deppy.Variable {
+	var result []deppy.Variable
 	for _, i := range d.inorder {
 		if g.Value(d.LitOf(i.Identifier())) {
 			result = append(result, i)
@@ -195,9 +203,9 @@ func (d *litMapping) Lits(dst []z.Lit) []z.Lit {
 	return dst
 }
 
-func (d *litMapping) Conflicts(g inter.Assumable) []AppliedConstraint {
+func (d *litMapping) Conflicts(g inter.Assumable) []deppy.AppliedConstraint {
 	whys := g.Why(nil)
-	as := make([]AppliedConstraint, 0, len(whys))
+	as := make([]deppy.AppliedConstraint, 0, len(whys))
 	for _, why := range whys {
 		if a, ok := d.constraints[why]; ok {
 			as = append(as, a)

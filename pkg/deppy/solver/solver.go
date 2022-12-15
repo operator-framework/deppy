@@ -1,9 +1,11 @@
-package input
+package solver
 
 import (
 	"context"
 
-	"github.com/operator-framework/deppy/pkg/solver"
+	"github.com/operator-framework/deppy/internal/solver"
+	"github.com/operator-framework/deppy/pkg/deppy"
+	"github.com/operator-framework/deppy/pkg/deppy/input"
 )
 
 // TODO: should disambiguate between solver errors due to constraints
@@ -12,16 +14,16 @@ import (
 // Solution is returned by the Solver when a solution could be found
 // it can be queried by Identifier to see if the entity was selected (true) or not (false)
 // by the solver
-type Solution map[solver.Identifier]bool
+type Solution map[deppy.Identifier]bool
 
 // DeppySolver is a simple solver implementation that takes an entity source group and a constraint aggregator
 // to produce a Solution (or error if no solution can be found)
 type DeppySolver struct {
-	entitySource   EntitySource
-	variableSource VariableSource
+	entitySource   input.EntitySource
+	variableSource input.VariableSource
 }
 
-func NewDeppySolver(entitySource EntitySource, variableSource VariableSource) (*DeppySolver, error) {
+func NewDeppySolver(entitySource input.EntitySource, variableSource input.VariableSource) (*DeppySolver, error) {
 	return &DeppySolver{
 		entitySource:   entitySource,
 		variableSource: variableSource,

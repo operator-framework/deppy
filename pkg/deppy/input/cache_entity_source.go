@@ -3,23 +3,23 @@ package input
 import (
 	"context"
 
-	"github.com/operator-framework/deppy/pkg/solver"
+	"github.com/operator-framework/deppy/pkg/deppy"
 )
 
 var _ EntitySource = &CacheEntitySource{}
 
 type CacheEntitySource struct {
 	// TODO: separate out a cache
-	entities map[solver.Identifier]Entity
+	entities map[deppy.Identifier]Entity
 }
 
-func NewCacheQuerier(entities map[solver.Identifier]Entity) *CacheEntitySource {
+func NewCacheQuerier(entities map[deppy.Identifier]Entity) *CacheEntitySource {
 	return &CacheEntitySource{
 		entities: entities,
 	}
 }
 
-func (c CacheEntitySource) Get(_ context.Context, id solver.Identifier) *Entity {
+func (c CacheEntitySource) Get(_ context.Context, id deppy.Identifier) *Entity {
 	if entity, ok := c.entities[id]; ok {
 		return &entity
 	}

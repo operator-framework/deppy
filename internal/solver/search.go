@@ -5,6 +5,8 @@ import (
 
 	"github.com/go-air/gini/inter"
 	"github.com/go-air/gini/z"
+
+	"github.com/operator-framework/deppy/pkg/deppy"
 )
 
 type choice struct {
@@ -26,7 +28,7 @@ type search struct {
 	assumptions            map[z.Lit]struct{} // set of assumed lits - duplicates guess stack - for fast lookup
 	guesses                []guess            // stack of assumed guesses
 	headChoice, tailChoice *choice            // deque of unmade choices
-	tracer                 Tracer
+	tracer                 deppy.Tracer
 	result                 int
 	buffer                 []z.Lit
 }
@@ -59,7 +61,7 @@ func (h *search) PushGuess() {
 	variable := h.lits.VariableOf(g.m)
 	for _, constraint := range variable.Constraints() {
 		var ms []z.Lit
-		for _, dependency := range constraint.order() {
+		for _, dependency := range constraint.Order() {
 			ms = append(ms, h.lits.LitOf(dependency))
 		}
 		if len(ms) > 0 {
@@ -202,8 +204,8 @@ func (h *search) Do(ctx context.Context, anchors []z.Lit) (int, []z.Lit, map[z.L
 	return result, lits, set
 }
 
-func (h *search) Variables() []Variable {
-	result := make([]Variable, 0, len(h.guesses))
+func (h *search) Variables() []deppy.Variable {
+	result := make([]deppy.Variable, 0, len(h.guesses))
 	for _, g := range h.guesses {
 		if g.m != z.LitNull {
 			result = append(result, h.lits.VariableOf(g.candidates[g.index]))
@@ -212,6 +214,6 @@ func (h *search) Variables() []Variable {
 	return result
 }
 
-func (h *search) Conflicts() []AppliedConstraint {
+func (h *search) Conflicts() []deppy.AppliedConstraint {
 	return h.lits.Conflicts(h.s)
 }

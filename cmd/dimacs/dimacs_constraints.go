@@ -4,8 +4,9 @@ import (
 	"context"
 	"strings"
 
-	"github.com/operator-framework/deppy/pkg/input"
-	"github.com/operator-framework/deppy/pkg/solver"
+	"github.com/operator-framework/deppy/pkg/deppy"
+	"github.com/operator-framework/deppy/pkg/deppy/constraint"
+	"github.com/operator-framework/deppy/pkg/deppy/input"
 )
 
 var _ input.VariableSource = &ConstraintGenerator{}
@@ -20,9 +21,9 @@ func NewDimacsVariableSource(dimacs *Dimacs) *ConstraintGenerator {
 	}
 }
 
-func (d *ConstraintGenerator) GetVariables(ctx context.Context, entitySource input.EntitySource) ([]solver.Variable, error) {
-	varMap := make(map[solver.Identifier]*input.SimpleVariable, len(d.dimacs.variables))
-	variables := make([]solver.Variable, 0, len(d.dimacs.variables))
+func (d *ConstraintGenerator) GetVariables(ctx context.Context, entitySource input.EntitySource) ([]deppy.Variable, error) {
+	varMap := make(map[deppy.Identifier]*input.SimpleVariable, len(d.dimacs.variables))
+	variables := make([]deppy.Variable, 0, len(d.dimacs.variables))
 	if err := entitySource.Iterate(ctx, func(entity *input.Entity) error {
 		variable := input.NewSimpleVariable(entity.Identifier())
 		variables = append(variables, variable)
@@ -42,23 +43,23 @@ func (d *ConstraintGenerator) GetVariables(ctx context.Context, entitySource inp
 
 		if len(terms) == 1 {
 			// TODO: check constraints haven't already been added to the variable
-			variable := varMap[solver.Identifier(strings.TrimPrefix(first, "-"))]
+			variable := varMap[deppy.Identifier(strings.TrimPrefix(first, "-"))]
 			if strings.HasPrefix(first, "-") {
-				variable.AddConstraint(solver.Not())
+				variable.AddConstraint(constraint.Not())
 			} else {
 				// TODO: is this the right constraint here? (given that its an achoring constraint?)
-				variable.AddConstraint(solver.Mandatory())
+				variable.AddConstraint(constraint.Mandatory())
 			}
 			continue
 		}
 		for i := 1; i < len(terms); i++ {
-			variable := varMap[solver.Identifier(strings.TrimPrefix(first, "-"))]
+			variable := varMap[deppy.Identifier(strings.TrimPrefix(first, "-"))]
 			second := terms[i]
 			negSubject := strings.HasPrefix(first, "-")
 			negOperand := strings.HasPrefix(second, "-")
 
 			// TODO: this Or constraint is hacky as hell
-			variable.AddConstraint(solver.Or(solver.Identifier(strings.TrimPrefix(second, "-")), negSubject, negOperand))
+			variable.AddConstraint(constraint.Or(deppy.Identifier(strings.TrimPrefix(second, "-")), negSubject, negOperand))
 			first = second
 		}
 	}

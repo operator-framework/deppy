@@ -11,9 +11,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/operator-framework/deppy/pkg/solver"
-
-	"github.com/operator-framework/deppy/pkg/input"
+	"github.com/operator-framework/deppy/pkg/deppy"
+	"github.com/operator-framework/deppy/pkg/deppy/input"
 
 	. "github.com/onsi/gomega/gstruct"
 
@@ -60,7 +59,7 @@ type MockQuerier struct {
 	testEntityList input.EntityList
 }
 
-func (t MockQuerier) Get(_ context.Context, _ solver.Identifier) *input.Entity {
+func (t MockQuerier) Get(_ context.Context, _ deppy.Identifier) *input.Entity {
 	return &input.Entity{}
 }
 func (t MockQuerier) Filter(_ context.Context, filter input.Predicate) (input.EntityList, error) {

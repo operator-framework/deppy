@@ -5,9 +5,12 @@ import (
 	"math/rand"
 	"strconv"
 	"testing"
+
+	"github.com/operator-framework/deppy/pkg/deppy"
+	"github.com/operator-framework/deppy/pkg/deppy/constraint"
 )
 
-var BenchmarkInput = func() []Variable {
+var BenchmarkInput = func() []deppy.Variable {
 	const (
 		length      = 256
 		seed        = 9
@@ -18,18 +21,18 @@ var BenchmarkInput = func() []Variable {
 		nConflict   = 3
 	)
 
-	id := func(i int) Identifier {
-		return Identifier(strconv.Itoa(i))
+	id := func(i int) deppy.Identifier {
+		return deppy.Identifier(strconv.Itoa(i))
 	}
 
 	variable := func(i int) TestVariable {
-		var c []Constraint
+		var c []deppy.Constraint
 		if rand.Float64() < pMandatory {
-			c = append(c, Mandatory())
+			c = append(c, constraint.Mandatory())
 		}
 		if rand.Float64() < pDependency {
 			n := rand.Intn(nDependency-1) + 1
-			var d []Identifier
+			var d []deppy.Identifier
 			for x := 0; x < n; x++ {
 				y := i
 				for y == i {
@@ -37,7 +40,7 @@ var BenchmarkInput = func() []Variable {
 				}
 				d = append(d, id(y))
 			}
-			c = append(c, Dependency(d...))
+			c = append(c, constraint.Dependency(d...))
 		}
 		if rand.Float64() < pConflict {
 			n := rand.Intn(nConflict-1) + 1
@@ -46,7 +49,7 @@ var BenchmarkInput = func() []Variable {
 				for y == i {
 					y = rand.Intn(length)
 				}
-				c = append(c, Conflict(id(y)))
+				c = append(c, constraint.Conflict(id(y)))
 			}
 		}
 		return TestVariable{
@@ -56,7 +59,7 @@ var BenchmarkInput = func() []Variable {
 	}
 
 	rand.Seed(seed)
-	result := make([]Variable, length)
+	result := make([]deppy.Variable, length)
 	for i := range result {
 		result[i] = variable(i)
 	}
