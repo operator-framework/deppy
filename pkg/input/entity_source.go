@@ -1,7 +1,9 @@
-package entitysource
+package input
 
 import (
 	"context"
+
+	"github.com/operator-framework/deppy/pkg/solver"
 )
 
 // IteratorFunction is executed for each entity when iterating over all entities
@@ -22,7 +24,7 @@ type EntityListMap map[string]EntityList
 
 // EntitySource provides a query and content acquisition interface for arbitrary entity stores
 type EntitySource interface {
-	Get(ctx context.Context, id EntityID) *Entity
+	Get(ctx context.Context, id solver.Identifier) *Entity
 	Filter(ctx context.Context, filter Predicate) (EntityList, error)
 	GroupBy(ctx context.Context, fn GroupByFunction) (EntityListMap, error)
 	Iterate(ctx context.Context, fn IteratorFunction) error

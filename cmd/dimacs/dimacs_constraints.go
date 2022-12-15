@@ -4,12 +4,11 @@ import (
 	"context"
 	"strings"
 
-	"github.com/operator-framework/deppy/pkg/entitysource"
-	"github.com/operator-framework/deppy/pkg/sat"
-	"github.com/operator-framework/deppy/pkg/variablesource"
+	"github.com/operator-framework/deppy/pkg/input"
+	"github.com/operator-framework/deppy/pkg/solver"
 )
 
-var _ variablesource.VariableSource = &ConstraintGenerator{}
+var _ input.VariableSource = &ConstraintGenerator{}
 
 type ConstraintGenerator struct {
 	dimacs *Dimacs
@@ -21,13 +20,13 @@ func NewDimacsVariableSource(dimacs *Dimacs) *ConstraintGenerator {
 	}
 }
 
-func (d *ConstraintGenerator) GetVariables(ctx context.Context, entitySource entitysource.EntitySource) ([]sat.Variable, error) {
-	varMap := make(map[entitysource.EntityID]*variablesource.Variable, len(d.dimacs.variables))
-	variables := make([]sat.Variable, 0, len(d.dimacs.variables))
-	if err := entitySource.Iterate(ctx, func(entity *entitysource.Entity) error {
-		variable := variablesource.NewVariable(sat.Identifier(entity.ID()))
+func (d *ConstraintGenerator) GetVariables(ctx context.Context, entitySource input.EntitySource) ([]solver.Variable, error) {
+	varMap := make(map[solver.Identifier]*input.SimpleVariable, len(d.dimacs.variables))
+	variables := make([]solver.Variable, 0, len(d.dimacs.variables))
+	if err := entitySource.Iterate(ctx, func(entity *input.Entity) error {
+		variable := input.NewSimpleVariable(entity.Identifier())
 		variables = append(variables, variable)
-		varMap[entity.ID()] = variable
+		varMap[entity.Identifier()] = variable
 		return nil
 	}); err != nil {
 		return nil, err
@@ -43,23 +42,23 @@ func (d *ConstraintGenerator) GetVariables(ctx context.Context, entitySource ent
 
 		if len(terms) == 1 {
 			// TODO: check constraints haven't already been added to the variable
-			variable := varMap[entitysource.EntityID(strings.TrimPrefix(first, "-"))]
+			variable := varMap[solver.Identifier(strings.TrimPrefix(first, "-"))]
 			if strings.HasPrefix(first, "-") {
-				variable.AddConstraint(sat.Not())
+				variable.AddConstraint(solver.Not())
 			} else {
 				// TODO: is this the right constraint here? (given that its an achoring constraint?)
-				variable.AddConstraint(sat.Mandatory())
+				variable.AddConstraint(solver.Mandatory())
 			}
 			continue
 		}
 		for i := 1; i < len(terms); i++ {
-			variable := varMap[entitysource.EntityID(strings.TrimPrefix(first, "-"))]
+			variable := varMap[solver.Identifier(strings.TrimPrefix(first, "-"))]
 			second := terms[i]
 			negSubject := strings.HasPrefix(first, "-")
 			negOperand := strings.HasPrefix(second, "-")
 
 			// TODO: this Or constraint is hacky as hell
-			variable.AddConstraint(sat.Or(sat.Identifier(strings.TrimPrefix(second, "-")), negSubject, negOperand))
+			variable.AddConstraint(solver.Or(solver.Identifier(strings.TrimPrefix(second, "-")), negSubject, negOperand))
 			first = second
 		}
 	}

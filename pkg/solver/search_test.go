@@ -1,6 +1,6 @@
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -o zz_search_test.go ../../../../../vendor/github.com/go-air/gini/inter S
 
-package sat
+package solver
 
 import (
 	"context"

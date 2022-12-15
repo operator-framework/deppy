@@ -1,0 +1,27 @@
+package input_test
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/operator-framework/deppy/pkg/input"
+	"github.com/operator-framework/deppy/pkg/solver"
+)
+
+var _ = Describe("Entity", func() {
+	It("stores id and properties", func() {
+		entity := input.NewEntity("id", map[string]string{"prop": "value"})
+		Expect(entity.Identifier()).To(Equal(solver.Identifier("id")))
+
+		value, ok := entity.Properties["prop"]
+		Expect(ok).To(BeTrue())
+		Expect(value).To(Equal("value"))
+	})
+
+	It("returns not found error when property is not found", func() {
+		entity := input.NewEntity("id", map[string]string{"foo": "value"})
+		value, ok := entity.Properties["bar"]
+		Expect(value).To(Equal(""))
+		Expect(ok).To(BeFalse())
+	})
+})

@@ -9,9 +9,9 @@ import (
 	"github.com/blang/semver/v4"
 	"github.com/tidwall/gjson"
 
-	"github.com/operator-framework/deppy/pkg/entitysource"
-	"github.com/operator-framework/deppy/pkg/sat"
-	"github.com/operator-framework/deppy/pkg/variablesource"
+	"github.com/operator-framework/deppy/pkg/solver"
+
+	"github.com/operator-framework/deppy/pkg/input"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 	propertyNotFound = ""
 )
 
-var _ variablesource.VariableSource = &requirePackage{}
+var _ input.VariableSource = &requirePackage{}
 
 type requirePackage struct {
 	packageName  string
@@ -32,8 +32,8 @@ type requirePackage struct {
 	channel      string
 }
 
-func (r *requirePackage) GetVariables(ctx context.Context, entitySource entitysource.EntitySource) ([]sat.Variable, error) {
-	resultSet, err := entitySource.Filter(ctx, entitysource.And(
+func (r *requirePackage) GetVariables(ctx context.Context, entitySource input.EntitySource) ([]solver.Variable, error) {
+	resultSet, err := entitySource.Filter(ctx, input.And(
 		withPackageName(r.packageName),
 		withinVersion(r.versionRange),
 		withChannel(r.channel)))
@@ -42,13 +42,13 @@ func (r *requirePackage) GetVariables(ctx context.Context, entitySource entityso
 	}
 	ids := resultSet.Sort(byChannelAndVersion).CollectIds()
 	subject := subject("require", r.packageName, r.versionRange, r.channel)
-	return []sat.Variable{
-		variablesource.NewVariable(subject, sat.Mandatory(), sat.Dependency(toSatIdentifier(ids...)...)),
+	return []solver.Variable{
+		input.NewSimpleVariable(subject, solver.Mandatory(), solver.Dependency(ids...)),
 	}, nil
 }
 
 // RequirePackage creates a constraint generator to describe that a package is wanted for installation
-func RequirePackage(packageName string, versionRange string, channel string) variablesource.VariableSource {
+func RequirePackage(packageName string, versionRange string, channel string) input.VariableSource {
 	return &requirePackage{
 		packageName:  packageName,
 		versionRange: versionRange,
@@ -56,30 +56,30 @@ func RequirePackage(packageName string, versionRange string, channel string) var
 	}
 }
 
-var _ variablesource.VariableSource = &uniqueness{}
+var _ input.VariableSource = &uniqueness{}
 
-type subjectFormatFn func(key string) sat.Identifier
+type subjectFormatFn func(key string) solver.Identifier
 
 type uniqueness struct {
 	subject   subjectFormatFn
-	groupByFn entitysource.GroupByFunction
+	groupByFn input.GroupByFunction
 }
 
-func (u *uniqueness) GetVariables(ctx context.Context, entitySource entitysource.EntitySource) ([]sat.Variable, error) {
+func (u *uniqueness) GetVariables(ctx context.Context, entitySource input.EntitySource) ([]solver.Variable, error) {
 	resultSet, err := entitySource.GroupBy(ctx, u.groupByFn)
 	if err != nil || len(resultSet) == 0 {
 		return nil, err
 	}
-	variables := make([]sat.Variable, 0, len(resultSet))
+	variables := make([]solver.Variable, 0, len(resultSet))
 	for key, entities := range resultSet {
-		ids := toSatIdentifier(entities.Sort(byChannelAndVersion).CollectIds()...)
-		variables = append(variables, variablesource.NewVariable(u.subject(key), sat.AtMost(1, ids...)))
+		ids := entities.Sort(byChannelAndVersion).CollectIds()
+		variables = append(variables, input.NewSimpleVariable(u.subject(key), solver.AtMost(1, ids...)))
 	}
 	return variables, nil
 }
 
 // GVKUniqueness generates constraints describing that only a single bundle / gvk can be selected
-func GVKUniqueness() variablesource.VariableSource {
+func GVKUniqueness() input.VariableSource {
 	return &uniqueness{
 		subject:   uniquenessSubjectFormat,
 		groupByFn: gvkGroupFunction,
@@ -87,36 +87,36 @@ func GVKUniqueness() variablesource.VariableSource {
 }
 
 // PackageUniqueness generates constraints describing that only a single bundle / package can be selected
-func PackageUniqueness() variablesource.VariableSource {
+func PackageUniqueness() input.VariableSource {
 	return &uniqueness{
 		subject:   uniquenessSubjectFormat,
 		groupByFn: packageGroupFunction,
 	}
 }
 
-func uniquenessSubjectFormat(key string) sat.Identifier {
-	return sat.IdentifierFromString(fmt.Sprintf("%s uniqueness", key))
+func uniquenessSubjectFormat(key string) solver.Identifier {
+	return solver.IdentifierFromString(fmt.Sprintf("%s uniqueness", key))
 }
 
-var _ variablesource.VariableSource = &packageDependency{}
+var _ input.VariableSource = &packageDependency{}
 
 type packageDependency struct {
-	subject      sat.Identifier
+	subject      solver.Identifier
 	packageName  string
 	versionRange string
 }
 
-func (p *packageDependency) GetVariables(ctx context.Context, entitySource entitysource.EntitySource) ([]sat.Variable, error) {
-	entities, err := entitySource.Filter(ctx, entitysource.And(withPackageName(p.packageName), withinVersion(p.versionRange)))
+func (p *packageDependency) GetVariables(ctx context.Context, entitySource input.EntitySource) ([]solver.Variable, error) {
+	entities, err := entitySource.Filter(ctx, input.And(withPackageName(p.packageName), withinVersion(p.versionRange)))
 	if err != nil || len(entities) == 0 {
 		return nil, err
 	}
-	ids := toSatIdentifier(entities.Sort(byChannelAndVersion).CollectIds()...)
-	return []sat.Variable{variablesource.NewVariable(p.subject, sat.Dependency(ids...))}, nil
+	ids := entities.Sort(byChannelAndVersion).CollectIds()
+	return []solver.Variable{input.NewSimpleVariable(p.subject, solver.Dependency(ids...))}, nil
 }
 
 // PackageDependency generates constraints to describe a package's dependency on another package
-func PackageDependency(subject sat.Identifier, packageName string, versionRange string) variablesource.VariableSource {
+func PackageDependency(subject solver.Identifier, packageName string, versionRange string) input.VariableSource {
 	return &packageDependency{
 		subject:      subject,
 		packageName:  packageName,
@@ -124,26 +124,26 @@ func PackageDependency(subject sat.Identifier, packageName string, versionRange 
 	}
 }
 
-var _ variablesource.VariableSource = &gvkDependency{}
+var _ input.VariableSource = &gvkDependency{}
 
 type gvkDependency struct {
-	subject sat.Identifier
+	subject solver.Identifier
 	group   string
 	version string
 	kind    string
 }
 
-func (g *gvkDependency) GetVariables(ctx context.Context, entitySource entitysource.EntitySource) ([]sat.Variable, error) {
-	entities, err := entitySource.Filter(ctx, entitysource.And(withExportsGVK(g.group, g.version, g.kind)))
+func (g *gvkDependency) GetVariables(ctx context.Context, entitySource input.EntitySource) ([]solver.Variable, error) {
+	entities, err := entitySource.Filter(ctx, input.And(withExportsGVK(g.group, g.version, g.kind)))
 	if err != nil || len(entities) == 0 {
 		return nil, err
 	}
-	ids := toSatIdentifier(entities.Sort(byChannelAndVersion).CollectIds()...)
-	return []sat.Variable{variablesource.NewVariable(g.subject, sat.Dependency(ids...))}, nil
+	ids := entities.Sort(byChannelAndVersion).CollectIds()
+	return []solver.Variable{input.NewSimpleVariable(g.subject, solver.Dependency(ids...))}, nil
 }
 
 // GVKDependency generates constraints to describe a package's dependency on a gvk
-func GVKDependency(subject sat.Identifier, group string, version string, kind string) variablesource.VariableSource {
+func GVKDependency(subject solver.Identifier, group string, version string, kind string) input.VariableSource {
 	return &gvkDependency{
 		subject: subject,
 		group:   group,
@@ -152,18 +152,18 @@ func GVKDependency(subject sat.Identifier, group string, version string, kind st
 	}
 }
 
-func withPackageName(packageName string) entitysource.Predicate {
-	return func(entity *entitysource.Entity) bool {
-		if pkgName, err := entity.GetProperty(PropertyOLMPackageName); err == nil {
+func withPackageName(packageName string) input.Predicate {
+	return func(entity *input.Entity) bool {
+		if pkgName, ok := entity.Properties[PropertyOLMPackageName]; ok {
 			return pkgName == packageName
 		}
 		return false
 	}
 }
 
-func withinVersion(semverRange string) entitysource.Predicate {
-	return func(entity *entitysource.Entity) bool {
-		if v, err := entity.GetProperty(PropertyOLMVersion); err == nil {
+func withinVersion(semverRange string) input.Predicate {
+	return func(entity *input.Entity) bool {
+		if v, ok := entity.Properties[PropertyOLMVersion]; ok {
 			vrange, err := semver.ParseRange(semverRange)
 			if err != nil {
 				return false
@@ -178,21 +178,21 @@ func withinVersion(semverRange string) entitysource.Predicate {
 	}
 }
 
-func withChannel(channel string) entitysource.Predicate {
-	return func(entity *entitysource.Entity) bool {
+func withChannel(channel string) input.Predicate {
+	return func(entity *input.Entity) bool {
 		if channel == "" {
 			return true
 		}
-		if c, err := entity.GetProperty(PropertyOLMChannel); err == nil {
+		if c, ok := entity.Properties[PropertyOLMChannel]; ok {
 			return c == channel
 		}
 		return false
 	}
 }
 
-func withExportsGVK(group string, version string, kind string) entitysource.Predicate {
-	return func(entity *entitysource.Entity) bool {
-		if g, err := entity.GetProperty(PropertyOLMGVK); err == nil {
+func withExportsGVK(group string, version string, kind string) input.Predicate {
+	return func(entity *input.Entity) bool {
+		if g, ok := entity.Properties[PropertyOLMGVK]; ok {
 			for _, gvk := range gjson.Parse(g).Array() {
 				if gjson.Get(gvk.String(), "group").String() == group && gjson.Get(gvk.String(), "version").String() == version && gjson.Get(gvk.String(), "kind").String() == kind {
 					return true
@@ -207,8 +207,8 @@ func withExportsGVK(group string, version string, kind string) entitysource.Pred
 // package, channel (default channel at the head), and inverse version (higher versions on top)
 // if a property does not exist for one of the entities, the one missing the property is pushed down
 // if both entities are missing the same property they are ordered by id
-func byChannelAndVersion(e1 *entitysource.Entity, e2 *entitysource.Entity) bool {
-	idOrder := e1.ID() < e2.ID()
+func byChannelAndVersion(e1 *input.Entity, e2 *input.Entity) bool {
+	idOrder := e1.Identifier() < e2.Identifier()
 
 	// first sort package lexical order
 	pkgOrder := compareProperty(getPropertyOrNotFound(e1, PropertyOLMPackageName), getPropertyOrNotFound(e2, PropertyOLMPackageName))
@@ -243,7 +243,7 @@ func byChannelAndVersion(e1 *entitysource.Entity, e2 *entitysource.Entity) bool 
 	e1Version := getPropertyOrNotFound(e1, PropertyOLMVersion)
 	e2Version := getPropertyOrNotFound(e2, PropertyOLMVersion)
 
-	// if neither has a version property, sort in ID order
+	// if neither has a version property, sort in Identifier order
 	if e1Version == propertyNotFound && e2Version == propertyNotFound {
 		return idOrder
 	}
@@ -267,8 +267,8 @@ func byChannelAndVersion(e1 *entitysource.Entity, e2 *entitysource.Entity) bool 
 	return v1.GT(v2)
 }
 
-func gvkGroupFunction(entity *entitysource.Entity) []string {
-	if gvks, err := entity.GetProperty(PropertyOLMGVK); err == nil {
+func gvkGroupFunction(entity *input.Entity) []string {
+	if gvks, ok := entity.Properties[PropertyOLMGVK]; ok {
 		gvkArray := gjson.Parse(gvks).Array()
 		keys := make([]string, 0, len(gvkArray))
 		for _, val := range gvkArray {
@@ -285,28 +285,20 @@ func gvkGroupFunction(entity *entitysource.Entity) []string {
 	return nil
 }
 
-func packageGroupFunction(entity *entitysource.Entity) []string {
-	if packageName, err := entity.GetProperty(PropertyOLMPackageName); err == nil {
+func packageGroupFunction(entity *input.Entity) []string {
+	if packageName, ok := entity.Properties[PropertyOLMPackageName]; ok {
 		return []string{packageName}
 	}
 	return nil
 }
 
-func subject(str ...string) sat.Identifier {
-	return sat.Identifier(regexp.MustCompile(`\\s`).ReplaceAllString(strings.Join(str, "-"), ""))
+func subject(str ...string) solver.Identifier {
+	return solver.Identifier(regexp.MustCompile(`\\s`).ReplaceAllString(strings.Join(str, "-"), ""))
 }
 
-func toSatIdentifier(ids ...entitysource.EntityID) []sat.Identifier {
-	satIds := make([]sat.Identifier, len(ids))
-	for i := range ids {
-		satIds[i] = sat.Identifier(ids[i])
-	}
-	return satIds
-}
-
-func getPropertyOrNotFound(entity *entitysource.Entity, propertyName string) string {
-	value, err := entity.GetProperty(propertyName)
-	if err != nil {
+func getPropertyOrNotFound(entity *input.Entity, propertyName string) string {
+	value, ok := entity.Properties[propertyName]
+	if !ok {
 		return propertyNotFound
 	}
 	return value

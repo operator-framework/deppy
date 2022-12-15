@@ -1,6 +1,10 @@
-package entitysource
+package input
 
-import "sort"
+import (
+	"sort"
+
+	"github.com/operator-framework/deppy/pkg/solver"
+)
 
 func (r EntityList) Sort(fn SortFunction) EntityList {
 	sort.SliceStable(r, func(i, j int) bool {
@@ -9,10 +13,10 @@ func (r EntityList) Sort(fn SortFunction) EntityList {
 	return r
 }
 
-func (r EntityList) CollectIds() []EntityID {
-	ids := make([]EntityID, len(r))
+func (r EntityList) CollectIds() []solver.Identifier {
+	ids := make([]solver.Identifier, len(r))
 	for i := range r {
-		ids[i] = r[i].ID()
+		ids[i] = r[i].Identifier()
 	}
 	return ids
 }

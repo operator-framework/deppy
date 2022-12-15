@@ -1,4 +1,4 @@
-package entitysource_test
+package input_test
 
 import (
 	"testing"
