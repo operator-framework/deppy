@@ -9,13 +9,15 @@ import (
 	"github.com/go-air/gini"
 	"github.com/go-air/gini/inter"
 	"github.com/go-air/gini/z"
+
+	"github.com/operator-framework/deppy/pkg/deppy"
 )
 
 var ErrIncomplete = errors.New("cancelled before a solution could be found")
 
 // NotSatisfiable is an error composed of a minimal set of applied
 // constraints that is sufficient to make a solution impossible.
-type NotSatisfiable []AppliedConstraint
+type NotSatisfiable []deppy.AppliedConstraint
 
 func (e NotSatisfiable) Error() string {
 	const msg = "constraints not satisfiable"
@@ -30,13 +32,13 @@ func (e NotSatisfiable) Error() string {
 }
 
 type Solver interface {
-	Solve(context.Context) ([]Variable, error)
+	Solve(context.Context) ([]deppy.Variable, error)
 }
 
 type solver struct {
 	g      inter.S
 	litMap *litMapping
-	tracer Tracer
+	tracer deppy.Tracer
 	buffer []z.Lit
 }
 
@@ -50,7 +52,7 @@ const (
 // containing only those Variables that were selected for
 // installation. If no solution is possible, or if the provided
 // Context times out or is cancelled, an error is returned.
-func (s *solver) Solve(ctx context.Context) (result []Variable, err error) {
+func (s *solver) Solve(ctx context.Context) (result []deppy.Variable, err error) {
 	defer func() {
 		// This likely indicates a bug, so discard whatever
 		// return values were produced.
@@ -78,7 +80,7 @@ func (s *solver) Solve(ctx context.Context) (result []Variable, err error) {
 	// push a new test scope with the baseline assumptions, to prevent them from being cleared during search
 	outcome, _ := s.g.Test(nil)
 	if outcome != satisfiable && outcome != unsatisfiable {
-		// searcher for solutions in input order, so that preferences
+		// searcher for solutions in input Order, so that preferences
 		// can be taken into acount (i.e. prefer one catalog to another)
 		outcome, assumptions, aset = (&search{s: s.g, lits: s.litMap, tracer: s.tracer}).Do(context.Background(), assumptions)
 	}
@@ -130,7 +132,7 @@ func NewSolver(options ...Option) (Solver, error) {
 
 type Option func(s *solver) error
 
-func WithInput(input []Variable) Option {
+func WithInput(input []deppy.Variable) Option {
 	return func(s *solver) error {
 		var err error
 		s.litMap, err = newLitMapping(input)
@@ -138,7 +140,7 @@ func WithInput(input []Variable) Option {
 	}
 }
 
-func WithTracer(t Tracer) Option {
+func WithTracer(t deppy.Tracer) Option {
 	return func(s *solver) error {
 		s.tracer = t
 		return nil

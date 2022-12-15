@@ -7,8 +7,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/operator-framework/deppy/pkg/input"
-	"github.com/operator-framework/deppy/pkg/solver"
+	"github.com/operator-framework/deppy/pkg/deppy"
+	"github.com/operator-framework/deppy/pkg/deppy/constraint"
+	"github.com/operator-framework/deppy/pkg/deppy/input"
 )
 
 var _ input.EntitySource = &Sudoku{}
@@ -18,15 +19,15 @@ type Sudoku struct {
 	*input.CacheEntitySource
 }
 
-func GetID(row int, col int, num int) solver.Identifier {
+func GetID(row int, col int, num int) deppy.Identifier {
 	n := num
 	n += col * 9
 	n += row * 81
-	return solver.Identifier(fmt.Sprintf("%03d", n))
+	return deppy.Identifier(fmt.Sprintf("%03d", n))
 }
 
 func NewSudoku() *Sudoku {
-	var entities = make(map[solver.Identifier]input.Entity, 9*9*9)
+	var entities = make(map[deppy.Identifier]input.Entity, 9*9*9)
 	for row := 0; row < 9; row++ {
 		for col := 0; col < 9; col++ {
 			for num := 0; num < 9; num++ {
@@ -44,17 +45,17 @@ func NewSudoku() *Sudoku {
 	}
 }
 
-func (s Sudoku) GetVariables(ctx context.Context, _ input.EntitySource) ([]solver.Variable, error) {
+func (s Sudoku) GetVariables(ctx context.Context, _ input.EntitySource) ([]deppy.Variable, error) {
 	// adapted from: https://github.com/go-air/gini/blob/871d828a26852598db2b88f436549634ba9533ff/sudoku_test.go#L10
-	variables := make(map[solver.Identifier]*input.SimpleVariable, 0)
-	inorder := make([]solver.Variable, 0)
+	variables := make(map[deppy.Identifier]*input.SimpleVariable, 0)
+	inorder := make([]deppy.Variable, 0)
 	rand.Seed(time.Now().UnixNano())
 
 	// create variables for all number in all positions of the board
 	for row := 0; row < 9; row++ {
 		for col := 0; col < 9; col++ {
 			for n := 0; n < 9; n++ {
-				variable := input.NewSimpleVariable(solver.Identifier(GetID(row, col, n)))
+				variable := input.NewSimpleVariable(GetID(row, col, n))
 				variables[variable.Identifier()] = variable
 				inorder = append(inorder, variable)
 			}
@@ -64,16 +65,16 @@ func (s Sudoku) GetVariables(ctx context.Context, _ input.EntitySource) ([]solve
 	// add a clause stating that every position on the board has a number
 	for row := 0; row < 9; row++ {
 		for col := 0; col < 9; col++ {
-			ids := make([]solver.Identifier, 9)
+			ids := make([]deppy.Identifier, 9)
 			for n := 0; n < 9; n++ {
-				ids[n] = solver.Identifier(GetID(row, col, n))
+				ids[n] = GetID(row, col, n)
 			}
 			// randomize order to create new sudoku boards every run
 			rand.Shuffle(len(ids), func(i, j int) { ids[i], ids[j] = ids[j], ids[i] })
 
 			// create clause that the particular position has a number
-			varID := solver.Identifier(fmt.Sprintf("%d-%d has a number", row, col))
-			variable := input.NewSimpleVariable(varID, solver.Mandatory(), solver.Dependency(ids...))
+			varID := deppy.Identifier(fmt.Sprintf("%d-%d has a number", row, col))
+			variable := input.NewSimpleVariable(varID, constraint.Mandatory(), constraint.Dependency(ids...))
 			variables[varID] = variable
 			inorder = append(inorder, variable)
 		}
@@ -83,10 +84,10 @@ func (s Sudoku) GetVariables(ctx context.Context, _ input.EntitySource) ([]solve
 	for n := 0; n < 9; n++ {
 		for row := 0; row < 9; row++ {
 			for colA := 0; colA < 9; colA++ {
-				idA := solver.Identifier(GetID(row, colA, n))
+				idA := GetID(row, colA, n)
 				variable := variables[idA]
 				for colB := colA + 1; colB < 9; colB++ {
-					variable.AddConstraint(solver.Conflict(solver.Identifier(GetID(row, colB, n))))
+					variable.AddConstraint(constraint.Conflict(GetID(row, colB, n)))
 				}
 			}
 		}
@@ -96,10 +97,10 @@ func (s Sudoku) GetVariables(ctx context.Context, _ input.EntitySource) ([]solve
 	for n := 0; n < 9; n++ {
 		for col := 0; col < 9; col++ {
 			for rowA := 0; rowA < 9; rowA++ {
-				idA := solver.Identifier(GetID(rowA, col, n))
+				idA := GetID(rowA, col, n)
 				variable := variables[idA]
 				for rowB := rowA + 1; rowB < 9; rowB++ {
-					variable.AddConstraint(solver.Conflict(solver.Identifier(GetID(rowB, col, n))))
+					variable.AddConstraint(constraint.Conflict(GetID(rowB, col, n)))
 				}
 			}
 		}
@@ -113,12 +114,12 @@ func (s Sudoku) GetVariables(ctx context.Context, _ input.EntitySource) ([]solve
 		// all numbers
 		for n := 0; n < 9; n++ {
 			for i, offA := range offs {
-				idA := solver.Identifier(GetID(x+offA.x, y+offA.y, n))
+				idA := GetID(x+offA.x, y+offA.y, n)
 				variable := variables[idA]
 				for j := i + 1; j < len(offs); j++ {
 					offB := offs[j]
-					idB := solver.Identifier(GetID(x+offB.x, y+offB.y, n))
-					variable.AddConstraint(solver.Conflict(idB))
+					idB := GetID(x+offB.x, y+offB.y, n)
+					variable.AddConstraint(constraint.Conflict(idB))
 				}
 			}
 		}

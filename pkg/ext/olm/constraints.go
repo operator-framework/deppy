@@ -9,9 +9,11 @@ import (
 	"github.com/blang/semver/v4"
 	"github.com/tidwall/gjson"
 
-	"github.com/operator-framework/deppy/pkg/solver"
+	"github.com/operator-framework/deppy/pkg/deppy/input"
 
-	"github.com/operator-framework/deppy/pkg/input"
+	"github.com/operator-framework/deppy/pkg/deppy/constraint"
+
+	"github.com/operator-framework/deppy/pkg/deppy"
 )
 
 const (
@@ -32,7 +34,7 @@ type requirePackage struct {
 	channel      string
 }
 
-func (r *requirePackage) GetVariables(ctx context.Context, entitySource input.EntitySource) ([]solver.Variable, error) {
+func (r *requirePackage) GetVariables(ctx context.Context, entitySource input.EntitySource) ([]deppy.Variable, error) {
 	resultSet, err := entitySource.Filter(ctx, input.And(
 		withPackageName(r.packageName),
 		withinVersion(r.versionRange),
@@ -42,8 +44,8 @@ func (r *requirePackage) GetVariables(ctx context.Context, entitySource input.En
 	}
 	ids := resultSet.Sort(byChannelAndVersion).CollectIds()
 	subject := subject("require", r.packageName, r.versionRange, r.channel)
-	return []solver.Variable{
-		input.NewSimpleVariable(subject, solver.Mandatory(), solver.Dependency(ids...)),
+	return []deppy.Variable{
+		input.NewSimpleVariable(subject, constraint.Mandatory(), constraint.Dependency(ids...)),
 	}, nil
 }
 
@@ -58,22 +60,22 @@ func RequirePackage(packageName string, versionRange string, channel string) inp
 
 var _ input.VariableSource = &uniqueness{}
 
-type subjectFormatFn func(key string) solver.Identifier
+type subjectFormatFn func(key string) deppy.Identifier
 
 type uniqueness struct {
 	subject   subjectFormatFn
 	groupByFn input.GroupByFunction
 }
 
-func (u *uniqueness) GetVariables(ctx context.Context, entitySource input.EntitySource) ([]solver.Variable, error) {
+func (u *uniqueness) GetVariables(ctx context.Context, entitySource input.EntitySource) ([]deppy.Variable, error) {
 	resultSet, err := entitySource.GroupBy(ctx, u.groupByFn)
 	if err != nil || len(resultSet) == 0 {
 		return nil, err
 	}
-	variables := make([]solver.Variable, 0, len(resultSet))
+	variables := make([]deppy.Variable, 0, len(resultSet))
 	for key, entities := range resultSet {
 		ids := entities.Sort(byChannelAndVersion).CollectIds()
-		variables = append(variables, input.NewSimpleVariable(u.subject(key), solver.AtMost(1, ids...)))
+		variables = append(variables, input.NewSimpleVariable(u.subject(key), constraint.AtMost(1, ids...)))
 	}
 	return variables, nil
 }
@@ -94,29 +96,29 @@ func PackageUniqueness() input.VariableSource {
 	}
 }
 
-func uniquenessSubjectFormat(key string) solver.Identifier {
-	return solver.IdentifierFromString(fmt.Sprintf("%s uniqueness", key))
+func uniquenessSubjectFormat(key string) deppy.Identifier {
+	return deppy.IdentifierFromString(fmt.Sprintf("%s uniqueness", key))
 }
 
 var _ input.VariableSource = &packageDependency{}
 
 type packageDependency struct {
-	subject      solver.Identifier
+	subject      deppy.Identifier
 	packageName  string
 	versionRange string
 }
 
-func (p *packageDependency) GetVariables(ctx context.Context, entitySource input.EntitySource) ([]solver.Variable, error) {
+func (p *packageDependency) GetVariables(ctx context.Context, entitySource input.EntitySource) ([]deppy.Variable, error) {
 	entities, err := entitySource.Filter(ctx, input.And(withPackageName(p.packageName), withinVersion(p.versionRange)))
 	if err != nil || len(entities) == 0 {
 		return nil, err
 	}
 	ids := entities.Sort(byChannelAndVersion).CollectIds()
-	return []solver.Variable{input.NewSimpleVariable(p.subject, solver.Dependency(ids...))}, nil
+	return []deppy.Variable{input.NewSimpleVariable(p.subject, constraint.Dependency(ids...))}, nil
 }
 
 // PackageDependency generates constraints to describe a package's dependency on another package
-func PackageDependency(subject solver.Identifier, packageName string, versionRange string) input.VariableSource {
+func PackageDependency(subject deppy.Identifier, packageName string, versionRange string) input.VariableSource {
 	return &packageDependency{
 		subject:      subject,
 		packageName:  packageName,
@@ -127,23 +129,23 @@ func PackageDependency(subject solver.Identifier, packageName string, versionRan
 var _ input.VariableSource = &gvkDependency{}
 
 type gvkDependency struct {
-	subject solver.Identifier
+	subject deppy.Identifier
 	group   string
 	version string
 	kind    string
 }
 
-func (g *gvkDependency) GetVariables(ctx context.Context, entitySource input.EntitySource) ([]solver.Variable, error) {
+func (g *gvkDependency) GetVariables(ctx context.Context, entitySource input.EntitySource) ([]deppy.Variable, error) {
 	entities, err := entitySource.Filter(ctx, input.And(withExportsGVK(g.group, g.version, g.kind)))
 	if err != nil || len(entities) == 0 {
 		return nil, err
 	}
 	ids := entities.Sort(byChannelAndVersion).CollectIds()
-	return []solver.Variable{input.NewSimpleVariable(g.subject, solver.Dependency(ids...))}, nil
+	return []deppy.Variable{input.NewSimpleVariable(g.subject, constraint.Dependency(ids...))}, nil
 }
 
 // GVKDependency generates constraints to describe a package's dependency on a gvk
-func GVKDependency(subject solver.Identifier, group string, version string, kind string) input.VariableSource {
+func GVKDependency(subject deppy.Identifier, group string, version string, kind string) input.VariableSource {
 	return &gvkDependency{
 		subject: subject,
 		group:   group,
@@ -292,8 +294,8 @@ func packageGroupFunction(entity *input.Entity) []string {
 	return nil
 }
 
-func subject(str ...string) solver.Identifier {
-	return solver.Identifier(regexp.MustCompile(`\\s`).ReplaceAllString(strings.Join(str, "-"), ""))
+func subject(str ...string) deppy.Identifier {
+	return deppy.Identifier(regexp.MustCompile(`\\s`).ReplaceAllString(strings.Join(str, "-"), ""))
 }
 
 func getPropertyOrNotFound(entity *input.Entity, propertyName string) string {

@@ -3,7 +3,7 @@ package input
 import (
 	"sort"
 
-	"github.com/operator-framework/deppy/pkg/solver"
+	"github.com/operator-framework/deppy/pkg/deppy"
 )
 
 func (r EntityList) Sort(fn SortFunction) EntityList {
@@ -13,8 +13,8 @@ func (r EntityList) Sort(fn SortFunction) EntityList {
 	return r
 }
 
-func (r EntityList) CollectIds() []solver.Identifier {
-	ids := make([]solver.Identifier, len(r))
+func (r EntityList) CollectIds() []deppy.Identifier {
+	ids := make([]deppy.Identifier, len(r))
 	for i := range r {
 		ids[i] = r[i].Identifier()
 	}

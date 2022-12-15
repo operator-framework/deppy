@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/operator-framework/deppy/pkg/input"
+	"github.com/operator-framework/deppy/pkg/deppy/solver"
 )
 
 func NewSudokuCommand() *cobra.Command {
@@ -22,7 +22,7 @@ func NewSudokuCommand() *cobra.Command {
 func solve() error {
 	// build solver
 	sudoku := NewSudoku()
-	so, err := input.NewDeppySolver(sudoku, sudoku)
+	so, err := solver.NewDeppySolver(sudoku, sudoku)
 	if err != nil {
 		return err
 	}

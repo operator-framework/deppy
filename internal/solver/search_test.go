@@ -9,6 +9,10 @@ import (
 	"github.com/go-air/gini/inter"
 	"github.com/go-air/gini/z"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/operator-framework/deppy/pkg/deppy/constraint"
+
+	"github.com/operator-framework/deppy/pkg/deppy"
 )
 
 type TestScopeCounter struct {
@@ -31,19 +35,19 @@ func (c *TestScopeCounter) Untest() (result int) {
 func TestSearch(t *testing.T) {
 	type tc struct {
 		Name          string
-		Variables     []Variable
+		Variables     []deppy.Variable
 		TestReturns   []int
 		UntestReturns []int
 		Result        int
-		Assumptions   []Identifier
+		Assumptions   []deppy.Identifier
 	}
 
 	for _, tt := range []tc{
 		{
 			Name: "children popped from back of deque when guess popped",
-			Variables: []Variable{
-				variable("a", Mandatory(), Dependency("c")),
-				variable("b", Mandatory()),
+			Variables: []deppy.Variable{
+				variable("a", constraint.Mandatory(), constraint.Dependency("c")),
+				variable("b", constraint.Mandatory()),
 				variable("c"),
 			},
 			TestReturns:   []int{0, -1},
@@ -53,16 +57,16 @@ func TestSearch(t *testing.T) {
 		},
 		{
 			Name: "candidates exhausted",
-			Variables: []Variable{
-				variable("a", Mandatory(), Dependency("x")),
-				variable("b", Mandatory(), Dependency("y")),
+			Variables: []deppy.Variable{
+				variable("a", constraint.Mandatory(), constraint.Dependency("x")),
+				variable("b", constraint.Mandatory(), constraint.Dependency("y")),
 				variable("x"),
 				variable("y"),
 			},
 			TestReturns:   []int{0, 0, -1, 1},
 			UntestReturns: []int{0},
 			Result:        1,
-			Assumptions:   []Identifier{"a", "b", "y"},
+			Assumptions:   []deppy.Identifier{"a", "b", "y"},
 		},
 	} {
 		t.Run(tt.Name, func(t *testing.T) {
@@ -95,7 +99,7 @@ func TestSearch(t *testing.T) {
 			result, ms, _ := h.Do(context.Background(), anchors)
 
 			assert.Equal(tt.Result, result)
-			var ids []Identifier
+			var ids []deppy.Identifier
 			for _, m := range ms {
 				ids = append(ids, lits.VariableOf(m).Identifier())
 			}

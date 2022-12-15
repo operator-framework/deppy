@@ -7,9 +7,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/operator-framework/deppy/pkg/input"
+	"github.com/operator-framework/deppy/pkg/deppy/input"
 
-	"github.com/operator-framework/deppy/pkg/solver"
+	"github.com/operator-framework/deppy/pkg/deppy"
 
 	. "github.com/onsi/gomega/gstruct"
 )
@@ -41,7 +41,7 @@ func bySource(source string) input.Predicate {
 }
 
 // Test function for iterate
-var entityCheck map[solver.Identifier]bool
+var entityCheck map[deppy.Identifier]bool
 
 func check(entity *input.Entity) error {
 	checked, ok := entityCheck[entity.Identifier()]
@@ -73,11 +73,11 @@ var _ = Describe("EntitySource", func() {
 		)
 
 		BeforeEach(func() {
-			entities := map[solver.Identifier]input.Entity{
-				solver.Identifier("1-1"): *input.NewEntity("1-1", map[string]string{"source": "1", "index": "1"}),
-				solver.Identifier("1-2"): *input.NewEntity("1-2", map[string]string{"source": "1", "index": "2"}),
-				solver.Identifier("2-1"): *input.NewEntity("2-1", map[string]string{"source": "2", "index": "1"}),
-				solver.Identifier("2-2"): *input.NewEntity("2-2", map[string]string{"source": "2", "index": "2"}),
+			entities := map[deppy.Identifier]input.Entity{
+				deppy.Identifier("1-1"): *input.NewEntity("1-1", map[string]string{"source": "1", "index": "1"}),
+				deppy.Identifier("1-2"): *input.NewEntity("1-2", map[string]string{"source": "1", "index": "2"}),
+				deppy.Identifier("2-1"): *input.NewEntity("2-1", map[string]string{"source": "2", "index": "1"}),
+				deppy.Identifier("2-2"): *input.NewEntity("2-2", map[string]string{"source": "2", "index": "2"}),
 			}
 			entitySource = input.NewCacheQuerier(entities)
 		})
@@ -86,7 +86,7 @@ var _ = Describe("EntitySource", func() {
 			It("should return requested entity", func() {
 				e := entitySource.Get(context.Background(), "2-2")
 				Expect(e).NotTo(BeNil())
-				Expect(e.Identifier()).To(Equal(solver.Identifier("2-2")))
+				Expect(e.Identifier()).To(Equal(deppy.Identifier("2-2")))
 			})
 		})
 
@@ -137,7 +137,7 @@ var _ = Describe("EntitySource", func() {
 
 		Describe("Iterate", func() {
 			It("should go through all entities", func() {
-				entityCheck = map[solver.Identifier]bool{"1-1": false, "1-2": false, "2-1": false, "2-2": false}
+				entityCheck = map[deppy.Identifier]bool{"1-1": false, "1-2": false, "2-1": false, "2-2": false}
 				err := entitySource.Iterate(context.Background(), check)
 				Expect(err).To(BeNil())
 				for _, value := range entityCheck {
