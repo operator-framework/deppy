@@ -242,16 +242,6 @@ func TestSolve(t *testing.T) {
 			Installed: []deppy.Identifier{"a", "b", "y"},
 		},
 		{
-			Name: "two dependencies satisfied by one variable",
-			Variables: []deppy.Variable{
-				variable("a", constraint.Mandatory(), constraint.Dependency("y")),
-				variable("b", constraint.Mandatory(), constraint.Dependency("x", "y")),
-				variable("x"),
-				variable("y"),
-			},
-			Installed: []deppy.Identifier{"a", "b", "y"},
-		},
-		{
 			Name: "foo two dependencies satisfied by one variable",
 			Variables: []deppy.Variable{
 				variable("a", constraint.Mandatory(), constraint.Dependency("y", "z", "m")),
