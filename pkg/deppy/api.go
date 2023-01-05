@@ -1,9 +1,28 @@
 package deppy
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/go-air/gini/logic"
 	"github.com/go-air/gini/z"
 )
+
+// NotSatisfiable is an error composed of a minimal set of applied
+// constraints that is sufficient to make a solution impossible.
+type NotSatisfiable []AppliedConstraint
+
+func (e NotSatisfiable) Error() string {
+	const msg = "constraints not satisfiable"
+	if len(e) == 0 {
+		return msg
+	}
+	s := make([]string, len(e))
+	for i, a := range e {
+		s[i] = a.String()
+	}
+	return fmt.Sprintf("%s: %s", msg, strings.Join(s, ", "))
+}
 
 // Identifier values uniquely identify particular Variables within
 // the input to a single call to Solve.

@@ -43,7 +43,7 @@ func variable(id deppy.Identifier, constraints ...deppy.Constraint) deppy.Variab
 func TestNotSatisfiableError(t *testing.T) {
 	type tc struct {
 		Name   string
-		Error  NotSatisfiable
+		Error  deppy.NotSatisfiable
 		String string
 	}
 
@@ -55,11 +55,11 @@ func TestNotSatisfiableError(t *testing.T) {
 		{
 			Name:   "empty",
 			String: "constraints not satisfiable",
-			Error:  NotSatisfiable{},
+			Error:  deppy.NotSatisfiable{},
 		},
 		{
 			Name: "single failure",
-			Error: NotSatisfiable{
+			Error: deppy.NotSatisfiable{
 				deppy.AppliedConstraint{
 					Variable:   variable("a", constraint.Mandatory()),
 					Constraint: constraint.Mandatory(),
@@ -70,7 +70,7 @@ func TestNotSatisfiableError(t *testing.T) {
 		},
 		{
 			Name: "multiple failures",
-			Error: NotSatisfiable{
+			Error: deppy.NotSatisfiable{
 				deppy.AppliedConstraint{
 					Variable:   variable("a", constraint.Mandatory()),
 					Constraint: constraint.Mandatory(),
@@ -114,7 +114,7 @@ func TestSolve(t *testing.T) {
 		{
 			Name:      "both mandatory and prohibited produce error",
 			Variables: []deppy.Variable{variable("a", constraint.Mandatory(), constraint.Prohibited())},
-			Error: NotSatisfiable{
+			Error: deppy.NotSatisfiable{
 				{
 					Variable:   variable("a", constraint.Mandatory(), constraint.Prohibited()),
 					Constraint: constraint.Mandatory(),
@@ -184,7 +184,7 @@ func TestSolve(t *testing.T) {
 				variable("a", constraint.Mandatory()),
 				variable("b", constraint.Mandatory(), constraint.Conflict("a")),
 			},
-			Error: NotSatisfiable{
+			Error: deppy.NotSatisfiable{
 				{
 					Variable:   variable("a", constraint.Mandatory()),
 					Constraint: constraint.Mandatory(),
@@ -216,7 +216,7 @@ func TestSolve(t *testing.T) {
 				variable("x", constraint.Mandatory()),
 				variable("y", constraint.Mandatory()),
 			},
-			Error: NotSatisfiable{
+			Error: deppy.NotSatisfiable{
 				{
 					Variable:   variable("a", constraint.Mandatory(), constraint.Dependency("x", "y"), constraint.AtMost(1, "x", "y")),
 					Constraint: constraint.AtMost(1, "x", "y"),
@@ -313,7 +313,7 @@ func TestSolve(t *testing.T) {
 			// in favor of the constraint that appears
 			// earliest in the variable's list of
 			// constraints.
-			var ns NotSatisfiable
+			var ns deppy.NotSatisfiable
 			if errors.As(err, &ns) {
 				sort.SliceStable(ns, func(i, j int) bool {
 					if ns[i].Variable.Identifier() != ns[j].Variable.Identifier() {
