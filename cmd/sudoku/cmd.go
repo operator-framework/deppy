@@ -6,6 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/operator-framework/deppy/pkg/deppy"
+
 	"github.com/operator-framework/deppy/pkg/deppy/solver"
 )
 
@@ -32,12 +34,16 @@ func solve() error {
 	if err != nil {
 		fmt.Println("no solution found")
 	} else {
+		selected := map[deppy.Identifier]struct{}{}
+		for _, variable := range solution.SelectedVariables() {
+			selected[variable.Identifier()] = struct{}{}
+		}
 		for row := 0; row < 9; row++ {
 			for col := 0; col < 9; col++ {
 				found := false
 				for n := 0; n < 9; n++ {
 					id := GetID(row, col, n)
-					if solution[id] {
+					if _, ok := selected[id]; ok {
 						fmt.Printf("%d", n+1)
 						found = true
 						break
