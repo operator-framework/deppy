@@ -59,13 +59,13 @@ func solve(path string) error {
 	}
 
 	// get solution
-	solution, err := so.Solve(context.Background())
+	solution, err := so.Solve(context.Background(), solver.AddAllVariablesToSolution())
 	if err != nil {
 		fmt.Printf("no solution found: %s\n", err)
 	} else {
 		fmt.Println("solution found:")
-		for entityID, selected := range solution {
-			fmt.Printf("%s = %t\n", entityID, selected)
+		for _, variable := range solution.AllVariables() {
+			fmt.Printf("%s = %t\n", variable.Identifier(), solution.IsSelected(variable.Identifier()))
 		}
 	}
 
