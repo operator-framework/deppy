@@ -2,6 +2,7 @@ package solver_test
 
 import (
 	"context"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -16,6 +17,11 @@ import (
 
 	. "github.com/onsi/gomega/gstruct"
 )
+
+func TestSolver(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Solver Suite")
+}
 
 type EntitySourceStruct struct {
 	variables []deppy.Variable
