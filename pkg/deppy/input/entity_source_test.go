@@ -3,6 +3,7 @@ package input_test
 import (
 	"context"
 	"fmt"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -13,6 +14,11 @@ import (
 
 	. "github.com/onsi/gomega/gstruct"
 )
+
+func TestInput(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Input Suite")
+}
 
 // Test functions for filter
 func byIndex(index string) input.Predicate {

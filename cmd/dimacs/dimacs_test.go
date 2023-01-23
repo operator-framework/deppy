@@ -2,12 +2,18 @@ package dimacs_test
 
 import (
 	"bytes"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/operator-framework/deppy/cmd/dimacs"
 )
+
+func TestDimacs(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Dimacs Suite")
+}
 
 var _ = Describe("Dimacs", func() {
 	It("should fail if there is no header", func() {
