@@ -18,17 +18,33 @@ type UpgradeEdge struct {
 	Replaces  string   `json:"replaces,omitempty"`
 	Skips     []string `json:"skips,omitempty"`
 	SkipRange string   `json:"skipRange,omitempty"`
+	Version   string   `json:"version,omitempty"`
 }
 
-func entityFromBundle(catsrcID string, bundle *catalogsourceapi.Bundle) (*input.Entity, error) {
+type DefaultChannel struct {
+	DefaultChannel string `json:"defaultchannel"`
+}
+
+type BundleSource struct {
+	// possibly extend with support for other types of sources
+	Path string `json:"bundlepath,omitempty"`
+}
+
+const TypeDefaultChannel = "olm.package.defaultchannel"
+const TypeBundleSource = "olm.bundle.path"
+
+func entityFromBundle(catsrcID string, pkg *catalogsourceapi.Package, bundle *catalogsourceapi.Bundle) (*input.Entity, error) {
 	properties := map[string]string{}
 	var errs []error
 
+	// All properties are json encoded lists of values, regarless of property type.
+	// They can all be handled by unmarshalling into an (interface{}) - deppy does not need to know how to handle different types of properties.
 	propsList := map[string]map[string]struct{}{
-		property.TypeGVK:         {},
-		property.TypeGVKRequired: {},
-		property.TypePackage:     {},
-		property.TypeChannel:     {},
+		property.TypeGVK:             {},
+		property.TypeGVKRequired:     {},
+		property.TypePackage:         {},
+		property.TypePackageRequired: {},
+		property.TypeChannel:         {},
 	}
 
 	for _, prvAPI := range bundle.ProvidedApis {
@@ -70,6 +86,7 @@ func entityFromBundle(catsrcID string, bundle *catalogsourceapi.Bundle) (*input.
 		Replaces:  bundle.Replaces,
 		Skips:     bundle.Skips,
 		SkipRange: bundle.SkipRange,
+		Version:   bundle.Version,
 	})
 	if err != nil {
 		errs = append(errs, err)
@@ -77,9 +94,31 @@ func entityFromBundle(catsrcID string, bundle *catalogsourceapi.Bundle) (*input.
 		propsList[property.TypeChannel][string(upValue)] = struct{}{}
 	}
 
+	defaultValue, err := util.JSONMarshal(DefaultChannel{
+		DefaultChannel: pkg.DefaultChannelName,
+	})
+	if err != nil {
+		errs = append(errs, err)
+	} else {
+		propsList[TypeDefaultChannel] = map[string]struct{}{string(defaultValue): {}}
+	}
+
+	sourceValue, err := util.JSONMarshal(BundleSource{
+		Path: bundle.BundlePath,
+	})
+	if err != nil {
+		errs = append(errs, err)
+	} else {
+		propsList[TypeBundleSource] = map[string]struct{}{string(sourceValue): {}}
+	}
+
 	for _, p := range bundle.Properties {
 		if _, ok := propsList[p.Type]; !ok {
 			propsList[p.Type] = map[string]struct{}{}
+		}
+		if p.Type == property.TypePackage {
+			// override the inferred package if explicitly specified in bundle properties
+			propsList[p.Type] = map[string]struct{}{p.Value: {}}
 		}
 		propsList[p.Type][p.Value] = struct{}{}
 	}
@@ -115,75 +154,6 @@ func entityFromBundle(catsrcID string, bundle *catalogsourceapi.Bundle) (*input.
 		return nil, fmt.Errorf("failed to parse properties for bundle %s/%s in %s: %v", bundle.GetPackageName(), bundle.GetVersion(), catsrcID, errors.NewAggregate(errs))
 	}
 
-	entityID := deppy.Identifier(fmt.Sprintf("%s/%s/%s", catsrcID, bundle.PackageName, bundle.Version))
+	entityID := deppy.Identifier(fmt.Sprintf("%s/%s/%s/%s", catsrcID, bundle.PackageName, bundle.ChannelName, bundle.Version))
 	return input.NewEntity(entityID, properties), nil
-}
-
-// Deduplicate entities by their ID, aggregate multi-value properties and ensure no conflict for single value properties
-func deduplicate(entities []*input.Entity) ([]*input.Entity, error) {
-	entityMap := map[deppy.Identifier]*input.Entity{}
-	var resultSet []*input.Entity
-	errs := map[deppy.Identifier][]error{}
-	for _, e := range entities {
-		if _, ok := entityMap[e.Identifier()]; !ok {
-			resultSet = append(resultSet, e)
-			entityMap[e.Identifier()] = e
-			continue
-		}
-
-		var entityErrors []error
-		e2 := entityMap[e.Identifier()]
-		for pType, pValue := range e.Properties {
-			var v2 []interface{}
-			err := util.JSONUnmarshal([]byte(e2.Properties[pType]), &v2)
-			if err != nil {
-				entityErrors = append(entityErrors, fmt.Errorf("unable to merge property values for %s: failed to unmarshal property value %s: %v", pType, e2.Properties[pType], err))
-				continue
-			}
-
-			var v []interface{}
-			err = util.JSONUnmarshal([]byte(e.Properties[pType]), &v)
-			if err != nil {
-				entityErrors = append(entityErrors, fmt.Errorf("unable to merge property values for %s: failed to unmarshal property value %s: %v", pType, e2.Properties[pType], err))
-				continue
-			}
-			switch pType {
-			// The operator-registry ListBundles API lists different entries for each channel the referenced bundle is present on.
-			// FBC allows a bundle to have different upgrade paths on each channel.
-			case property.TypeChannel:
-				mergedProp, err := util.JSONMarshal(append(v2, v...))
-				if err != nil {
-					entityErrors = append(entityErrors, fmt.Errorf("unable to merge property values for %s: failed to unmarshal merged property value: %v", pType, err))
-					continue
-				}
-				e2.Properties[pType] = string(mergedProp)
-			// Most properties are single value by default.
-			default:
-				pValue2, ok := e2.Properties[pType]
-				if !ok {
-					e2.Properties[pType] = pValue
-					continue
-				}
-				if pValue2 != pValue {
-					entityErrors = append(entityErrors, fmt.Errorf("property %s has conflicting values : %s , %s ", pType, pValue2, pValue))
-					continue
-				}
-			}
-		}
-		if len(entityErrors) > 0 {
-			if _, ok := errs[e.Identifier()]; !ok {
-				errs[e.Identifier()] = entityErrors
-				continue
-			}
-			errs[e.Identifier()] = append(errs[e.Identifier()], entityErrors...)
-		}
-	}
-	if len(errs) > 0 {
-		var errList []error
-		for id, entityErrs := range errs {
-			errList = append(errList, fmt.Errorf("%s: %v", id, errors.NewAggregate(entityErrs)))
-		}
-		return nil, errors.NewAggregate(errList)
-	}
-	return resultSet, nil
 }

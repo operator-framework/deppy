@@ -24,7 +24,7 @@ import (
 const catalogSourceSelectorLabel = "olm.catalogSource"
 
 type CachedRegistryEntitySource struct {
-	sync.Mutex
+	sync.RWMutex
 	watch   watch.Interface
 	client  client.Client
 	rClient RegistryClient
@@ -53,7 +53,7 @@ func (r *CachedRegistryEntitySource) StartCache(ctx context.Context) {
 	// TODO: constraints for limiting watched catalogSources
 	// TODO: respect CatalogSource priorities
 	if err := r.populate(ctx); err != nil {
-		r.logger.Error(err, "failed to populate initial entity cache")
+		r.logger.Error(err, "error populating initial entity cache")
 	} else {
 		r.logger.Info("Populated initial cache")
 	}
@@ -71,24 +71,30 @@ func (r *CachedRegistryEntitySource) StartCache(ctx context.Context) {
 			switch entry.Type {
 			case watch.Deleted:
 				func() {
-					r.Mutex.Lock()
-					defer r.Mutex.Unlock()
+					r.RWMutex.Lock()
+					defer r.RWMutex.Unlock()
 					delete(r.cache, catalogSourceKey)
 					r.logger.Info("Completed cache delete", "catalogSource", catalogSourceKey, "event", entry.Type)
 				}()
 			case watch.Added, watch.Modified:
 				func() {
-					r.Mutex.Lock()
-					defer r.Mutex.Unlock()
-					if catalogSource.Status.GRPCConnectionState.LastObservedState != connectivity.Ready.String() {
+					r.RWMutex.Lock()
+					defer r.RWMutex.Unlock()
+					if !catalogSourceReady(catalogSource) {
 						return
 					}
-					imageID := r.imageIDFromCatalogSource(ctx, catalogSource)
-					if oldEntry, ok := r.cache[catalogSourceKey]; ok {
-						if len(imageID) > 0 && imageID == oldEntry.imageID {
-							// image hasn't changed since last sync
-							return
-						}
+					imageID, err := r.imageIDFromCatalogSource(ctx, catalogSource)
+					if err != nil {
+						r.logger.V(1).Info(fmt.Sprintf("failed to get latest imageID for catalogSource %s/%s, skipping cache update: %v", catalogSource.Name, catalogSource.Namespace, err))
+						return
+					}
+					if len(imageID) == 0 {
+						// This shouldn't happen, catalogSource would need to be nil
+						return
+					}
+					if oldEntry, ok := r.cache[catalogSourceKey]; ok && imageID == oldEntry.imageID {
+						// image hasn't changed since last sync
+						return
 					}
 					entities, err := r.rClient.ListEntities(ctx, catalogSource)
 					if err != nil {
@@ -107,14 +113,15 @@ func (r *CachedRegistryEntitySource) StartCache(ctx context.Context) {
 }
 
 func (r *CachedRegistryEntitySource) StopCache() {
-	r.Mutex.Lock()
-	defer r.Mutex.Unlock()
-	r.done <- struct{}{}
+	r.RWMutex.Lock()
+	defer r.RWMutex.Unlock()
+
+	close(r.done)
 }
 
 func (r *CachedRegistryEntitySource) Get(ctx context.Context, id deppy.Identifier) *input.Entity {
-	r.Mutex.Lock()
-	defer r.Mutex.Unlock()
+	r.RWMutex.RLock()
+	defer r.RWMutex.RUnlock()
 	for _, entries := range r.cache {
 		for _, entity := range entries.Items {
 			if entity.Identifier() == id {
@@ -126,8 +133,8 @@ func (r *CachedRegistryEntitySource) Get(ctx context.Context, id deppy.Identifie
 }
 
 func (r *CachedRegistryEntitySource) Filter(ctx context.Context, filter input.Predicate) (input.EntityList, error) {
-	r.Mutex.Lock()
-	defer r.Mutex.Unlock()
+	r.RWMutex.RLock()
+	defer r.RWMutex.RUnlock()
 	resultSet := input.EntityList{}
 	for _, entries := range r.cache {
 		for _, entity := range entries.Items {
@@ -140,8 +147,8 @@ func (r *CachedRegistryEntitySource) Filter(ctx context.Context, filter input.Pr
 }
 
 func (r *CachedRegistryEntitySource) GroupBy(ctx context.Context, fn input.GroupByFunction) (input.EntityListMap, error) {
-	r.Mutex.Lock()
-	defer r.Mutex.Unlock()
+	r.RWMutex.RLock()
+	defer r.RWMutex.RUnlock()
 	resultSet := input.EntityListMap{}
 	for _, entries := range r.cache {
 		for _, entity := range entries.Items {
@@ -155,8 +162,8 @@ func (r *CachedRegistryEntitySource) GroupBy(ctx context.Context, fn input.Group
 }
 
 func (r *CachedRegistryEntitySource) Iterate(ctx context.Context, fn input.IteratorFunction) error {
-	r.Mutex.Lock()
-	defer r.Mutex.Unlock()
+	r.RWMutex.RLock()
+	defer r.RWMutex.RUnlock()
 	for _, entries := range r.cache {
 		for _, entity := range entries.Items {
 			if err := fn(entity); err != nil {
@@ -169,18 +176,22 @@ func (r *CachedRegistryEntitySource) Iterate(ctx context.Context, fn input.Itera
 
 // populate initializes the state of an empty cache from the catalogSources currently present on the cluster
 func (r *CachedRegistryEntitySource) populate(ctx context.Context) error {
-	r.Mutex.Lock()
-	defer r.Mutex.Unlock()
+	r.RWMutex.Lock()
+	defer r.RWMutex.Unlock()
 	catalogSourceList := v1alpha1.CatalogSourceList{}
 	if err := r.client.List(ctx, &catalogSourceList); err != nil {
 		return err
 	}
 	var errs []error
 	for _, catalogSource := range catalogSourceList.Items {
-		if catalogSource.Status.GRPCConnectionState.LastObservedState != connectivity.Ready.String() {
+		if !catalogSourceReady(&catalogSource) {
 			continue
 		}
-		imageID := r.imageIDFromCatalogSource(ctx, &catalogSource)
+		imageID, err := r.imageIDFromCatalogSource(ctx, &catalogSource)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
 		if len(imageID) == 0 {
 			continue
 		}
@@ -202,9 +213,9 @@ func (r *CachedRegistryEntitySource) populate(ctx context.Context) error {
 }
 
 // imageIDFromCatalogSource returns the current image ref being run by a catalogSource
-func (r *CachedRegistryEntitySource) imageIDFromCatalogSource(ctx context.Context, catalogSource *v1alpha1.CatalogSource) string {
+func (r *CachedRegistryEntitySource) imageIDFromCatalogSource(ctx context.Context, catalogSource *v1alpha1.CatalogSource) (string, error) {
 	if catalogSource == nil {
-		return ""
+		return "", nil
 	}
 	svc := corev1.Service{}
 	svcName := types.NamespacedName{
@@ -214,11 +225,11 @@ func (r *CachedRegistryEntitySource) imageIDFromCatalogSource(ctx context.Contex
 	if err := r.client.Get(ctx, svcName,
 		&svc); err != nil {
 		// Cannot detect the backing service, don't refresh cache
-		return ""
+		return "", fmt.Errorf("failed to get service %s for catalogSource %s/%s: %v", svcName, catalogSource.Namespace, catalogSource.Name, err)
 	}
 	if len(svc.Spec.Selector[catalogSourceSelectorLabel]) == 0 {
 		// Cannot verify if image is recent
-		return ""
+		return "", fmt.Errorf("failed to get pod for service %s for catalogSource %s/%s: missing selector %s", svcName, catalogSource.Namespace, catalogSource.Name, catalogSourceSelectorLabel)
 	}
 	pods := corev1.PodList{}
 	if err := r.client.List(ctx, &pods,
@@ -226,20 +237,20 @@ func (r *CachedRegistryEntitySource) imageIDFromCatalogSource(ctx context.Contex
 			Selector: labels.SelectorFromValidatedSet(
 				map[string]string{catalogSourceSelectorLabel: svc.Spec.Selector[catalogSourceSelectorLabel]},
 			)}); err != nil {
-		return ""
+		return "", fmt.Errorf("failed to get pod for catalogSource %s/%s: %v", catalogSource.Namespace, catalogSource.Name, err)
 	}
 	if len(pods.Items) < 1 {
-		return ""
+		return "", fmt.Errorf("failed to get pod for catalogSource %s/%s: no pods matching selector %s", catalogSource.Namespace, catalogSource.Name, catalogSourceSelectorLabel)
 	}
 	if len(pods.Items[0].Status.ContainerStatuses) < 1 {
 		// pod not ready
-		return ""
+		return "", fmt.Errorf("failed to read imageID from catalogSource pod %s/%s: no containers ready on pod", pods.Items[0].Namespace, pods.Items[0].Name)
 	}
 	if len(pods.Items[0].Status.ContainerStatuses[0].ImageID) == 0 {
 		// pod not ready
-		return ""
+		return "", fmt.Errorf("failed to read imageID from catalogSource pod %s/%s: container state: %s", pods.Items[0].Namespace, pods.Items[0].Name, pods.Items[0].Status.ContainerStatuses[0].State)
 	}
-	return pods.Items[0].Status.ContainerStatuses[0].ImageID
+	return pods.Items[0].Status.ContainerStatuses[0].ImageID, nil
 }
 
 func catalogSourceFromObject(obj runtime.Object) (*v1alpha1.CatalogSource, error) {
@@ -254,4 +265,14 @@ func catalogSourceFromObject(obj runtime.Object) (*v1alpha1.CatalogSource, error
 		return nil, fmt.Errorf("object unmarshalling failed: %v", err)
 	}
 	return &catalogSource, nil
+}
+
+func catalogSourceReady(catalogSource *v1alpha1.CatalogSource) bool {
+	if catalogSource == nil {
+		return false
+	}
+	if catalogSource.Status.GRPCConnectionState == nil {
+		return false
+	}
+	return catalogSource.Status.GRPCConnectionState.LastObservedState == connectivity.Ready.String()
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	catalogsourceapi "github.com/operator-framework/operator-registry/pkg/api"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/operator-framework/deppy/pkg/deppy/input"
 	"github.com/operator-framework/deppy/pkg/lib/grpc"
@@ -20,13 +21,14 @@ type RegistryClient interface {
 
 type registryGRPCClient struct {
 	timeout time.Duration
+	client  client.Client
 }
 
-func NewRegistryGRPCClient(grpcTimeout time.Duration) RegistryClient {
+func NewRegistryGRPCClient(grpcTimeout time.Duration, client client.Client) RegistryClient {
 	if grpcTimeout == 0 {
 		grpcTimeout = grpc.DefaultGRPCTimeout
 	}
-	return &registryGRPCClient{timeout: grpcTimeout}
+	return &registryGRPCClient{timeout: grpcTimeout, client: client}
 }
 
 func (r *registryGRPCClient) ListEntities(ctx context.Context, catalogSource *v1alpha1.CatalogSource) ([]*input.Entity, error) {
@@ -47,6 +49,8 @@ func (r *registryGRPCClient) ListEntities(ctx context.Context, catalogSource *v1
 	}
 
 	var entities []*input.Entity
+	catalogPackages := map[string]*catalogsourceapi.Package{}
+	catalogSourceID := fmt.Sprintf("%s/%s", catalogSource.Namespace, catalogSource.Name)
 	for {
 		bundle, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
@@ -56,16 +60,21 @@ func (r *registryGRPCClient) ListEntities(ctx context.Context, catalogSource *v1
 			return entities, fmt.Errorf("failed to read bundle stream: %v", err)
 		}
 
-		entity, err := entityFromBundle(fmt.Sprintf("%s/%s", catalogSource.Namespace, catalogSource.Name), bundle)
+		packageKey := fmt.Sprintf("%s/%s", catalogSourceID, bundle.PackageName)
+		pkg, ok := catalogPackages[packageKey]
+		if !ok {
+			pkg, err = catsrcClient.GetPackage(ctx, &catalogsourceapi.GetPackageRequest{Name: bundle.PackageName})
+			if err != nil {
+				return entities, fmt.Errorf("failed to get package %s: %v", bundle.PackageName, err)
+			}
+			catalogPackages[packageKey] = pkg
+		}
+
+		entity, err := entityFromBundle(catalogSourceID, pkg, bundle)
 		if err != nil {
-			return entities, fmt.Errorf("failed to parse entity %s on bundle stream: %v", entity.Identifier(), err)
+			return entities, fmt.Errorf("failed to parse entity %s: %v", entity.Identifier(), err)
 		}
 		entities = append(entities, entity)
-	}
-
-	entities, err = deduplicate(entities)
-	if err != nil {
-		return nil, fmt.Errorf("failed to deduplicate properties for entites: %v", err)
 	}
 	return entities, nil
 }
