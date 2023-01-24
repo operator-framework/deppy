@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/operator-framework/deppy/pkg/deppy"
 	"github.com/operator-framework/deppy/pkg/deppy/input"
@@ -39,6 +40,9 @@ type sourceCache struct {
 }
 
 func NewCachedRegistryQuerier(watch watch.Interface, client client.Client, rClient RegistryClient, logger *logr.Logger) *CachedRegistryEntitySource {
+	if logger == nil {
+		*logger = zap.New()
+	}
 	return &CachedRegistryEntitySource{
 		watch:   watch,
 		client:  client,

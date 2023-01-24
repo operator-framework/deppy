@@ -40,11 +40,11 @@ func entityFromBundle(catsrcID string, pkg *catalogsourceapi.Package, bundle *ca
 	// All properties are json encoded lists of values, regarless of property type.
 	// They can all be handled by unmarshalling into an (interface{}) - deppy does not need to know how to handle different types of properties.
 	propsList := map[string]map[string]struct{}{
-		property.TypeGVK:             {},
-		property.TypeGVKRequired:     {},
-		property.TypePackage:         {},
+		property.TypeGVK:         {},
+		property.TypeGVKRequired: {},
+		//		property.TypePackage:         {},
 		property.TypePackageRequired: {},
-		property.TypeChannel:         {},
+		//		property.TypeChannel:         {},
 	}
 
 	for _, prvAPI := range bundle.ProvidedApis {
@@ -76,7 +76,8 @@ func entityFromBundle(catsrcID string, pkg *catalogsourceapi.Package, bundle *ca
 	if err != nil {
 		errs = append(errs, err)
 	} else {
-		propsList[property.TypePackage][string(pkgValue)] = struct{}{}
+		properties[property.TypePackage] = string(pkgValue)
+		//		propsList[property.TypePackage][string(pkgValue)] = struct{}{}
 	}
 
 	upValue, err := util.JSONMarshal(UpgradeEdge{
@@ -86,12 +87,13 @@ func entityFromBundle(catsrcID string, pkg *catalogsourceapi.Package, bundle *ca
 		Replaces:  bundle.Replaces,
 		Skips:     bundle.Skips,
 		SkipRange: bundle.SkipRange,
-		Version:   bundle.Version,
+		//		Version:   bundle.Version,
 	})
 	if err != nil {
 		errs = append(errs, err)
 	} else {
-		propsList[property.TypeChannel][string(upValue)] = struct{}{}
+		properties[property.TypeChannel] = string(upValue)
+		//		propsList[property.TypeChannel][string(upValue)] = struct{}{}
 	}
 
 	defaultValue, err := util.JSONMarshal(DefaultChannel{
@@ -103,22 +105,27 @@ func entityFromBundle(catsrcID string, pkg *catalogsourceapi.Package, bundle *ca
 		propsList[TypeDefaultChannel] = map[string]struct{}{string(defaultValue): {}}
 	}
 
-	sourceValue, err := util.JSONMarshal(BundleSource{
-		Path: bundle.BundlePath,
-	})
-	if err != nil {
-		errs = append(errs, err)
-	} else {
-		propsList[TypeBundleSource] = map[string]struct{}{string(sourceValue): {}}
-	}
+	//sourceValue, err := util.JSONMarshal(BundleSource{
+	//	Path: bundle.BundlePath,
+	//})
+	//if err != nil {
+	//	errs = append(errs, err)
+	//} else {
+	//	propsList[TypeBundleSource] = map[string]struct{}{string(sourceValue): {}}
+	//}
+	properties[TypeBundleSource] = bundle.BundlePath
 
 	for _, p := range bundle.Properties {
+		if p.Type == property.TypeChannel || p.Type == property.TypePackage || p.Type == TypeDefaultChannel {
+			// avoid duplicates
+			continue
+		}
+		//if p.Type == property.TypePackage {
+		//	// override the inferred package if explicitly specified in bundle properties
+		//	propsList[p.Type] = map[string]struct{}{p.Value: {}}
+		//}
 		if _, ok := propsList[p.Type]; !ok {
 			propsList[p.Type] = map[string]struct{}{}
-		}
-		if p.Type == property.TypePackage {
-			// override the inferred package if explicitly specified in bundle properties
-			propsList[p.Type] = map[string]struct{}{p.Value: {}}
 		}
 		propsList[p.Type][p.Value] = struct{}{}
 	}
