@@ -33,7 +33,7 @@ func NewRegistryGRPCClient(grpcTimeout time.Duration, client client.Client) Regi
 
 func (r *registryGRPCClient) ListEntities(ctx context.Context, catalogSource *v1alpha1.CatalogSource) ([]*input.Entity, error) {
 	// TODO: create GRPC connections separately
-	conn, err := grpc.ConnectWithTimeout(ctx, catalogSource.Address(), r.timeout)
+	conn, err := grpc.ConnectWithTimeout(ctx, "127.0.0.1:50051", r.timeout)
 	if conn != nil {
 		defer conn.Close()
 	}
