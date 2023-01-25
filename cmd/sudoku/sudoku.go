@@ -10,6 +10,7 @@ import (
 	"github.com/operator-framework/deppy/pkg/deppy"
 	"github.com/operator-framework/deppy/pkg/deppy/constraint"
 	"github.com/operator-framework/deppy/pkg/deppy/input"
+	"github.com/operator-framework/deppy/pkg/deppy/input/deppyentity"
 )
 
 var _ input.EntitySource = &Sudoku{}
@@ -27,12 +28,12 @@ func GetID(row int, col int, num int) deppy.Identifier {
 }
 
 func NewSudoku() *Sudoku {
-	var entities = make(map[deppy.Identifier]input.Entity, 9*9*9)
+	var entities = make(map[deppy.Identifier]deppyentity.Entity, 9*9*9)
 	for row := 0; row < 9; row++ {
 		for col := 0; col < 9; col++ {
 			for num := 0; num < 9; num++ {
 				id := GetID(row, col, num)
-				entities[id] = *input.NewEntity(id, map[string]string{
+				entities[id] = *deppyentity.NewEntity(id, map[string]string{
 					"row": strconv.Itoa(row),
 					"col": strconv.Itoa(col),
 					"num": strconv.Itoa(num),

@@ -9,6 +9,8 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 
+	"github.com/operator-framework/deppy/pkg/deppy/input/deppyentity"
+
 	"github.com/operator-framework/deppy/pkg/deppy/input"
 
 	"github.com/operator-framework/deppy/pkg/deppy/solver"
@@ -33,10 +35,10 @@ func (c EntitySourceStruct) GetVariables(_ context.Context, _ input.EntitySource
 }
 
 func NewEntitySource(variables []deppy.Variable) *EntitySourceStruct {
-	entities := make(map[deppy.Identifier]input.Entity, len(variables))
+	entities := make(map[deppy.Identifier]deppyentity.Entity, len(variables))
 	for _, variable := range variables {
 		entityID := variable.Identifier()
-		entities[entityID] = *input.NewEntity(entityID, map[string]string{"x": "y"})
+		entities[entityID] = *deppyentity.NewEntity(entityID, map[string]string{"x": "y"})
 	}
 	return &EntitySourceStruct{
 		variables:    variables,

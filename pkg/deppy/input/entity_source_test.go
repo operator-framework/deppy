@@ -8,6 +8,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/operator-framework/deppy/pkg/deppy/input/deppyentity"
+
+	"github.com/operator-framework/deppy/pkg/deppy/input/query"
+
 	"github.com/operator-framework/deppy/pkg/deppy/input"
 
 	"github.com/operator-framework/deppy/pkg/deppy"
@@ -21,35 +25,35 @@ func TestInput(t *testing.T) {
 }
 
 // Test functions for filter
-func byIndex(index string) input.Predicate {
-	return func(entity *input.Entity) bool {
+func byIndex(index string) query.Predicate {
+	return func(entity *deppyentity.Entity) (bool, error) {
 		i, ok := entity.Properties["index"]
 		if !ok {
-			return false
+			return false, nil
 		}
 		if i == index {
-			return true
+			return true, nil
 		}
-		return false
+		return false, nil
 	}
 }
-func bySource(source string) input.Predicate {
-	return func(entity *input.Entity) bool {
+func bySource(source string) query.Predicate {
+	return func(entity *deppyentity.Entity) (bool, error) {
 		i, ok := entity.Properties["source"]
 		if !ok {
-			return false
+			return false, nil
 		}
 		if i == source {
-			return true
+			return true, nil
 		}
-		return false
+		return false, nil
 	}
 }
 
 // Test function for iterate
 var entityCheck map[deppy.Identifier]bool
 
-func check(entity *input.Entity) error {
+func check(entity *deppyentity.Entity) error {
 	checked, ok := entityCheck[entity.Identifier()]
 	Expect(ok).Should(BeTrue())
 	Expect(checked).Should(BeFalse())
@@ -58,7 +62,7 @@ func check(entity *input.Entity) error {
 }
 
 // Test function for GroupBy
-func bySourceAndIndex(entity *input.Entity) []string {
+func bySourceAndIndex(entity *deppyentity.Entity) []string {
 	switch entity.Identifier() {
 	case "1-1":
 		return []string{"source 1", "index 1"}
@@ -79,11 +83,11 @@ var _ = Describe("EntitySource", func() {
 		)
 
 		BeforeEach(func() {
-			entities := map[deppy.Identifier]input.Entity{
-				deppy.Identifier("1-1"): *input.NewEntity("1-1", map[string]string{"source": "1", "index": "1"}),
-				deppy.Identifier("1-2"): *input.NewEntity("1-2", map[string]string{"source": "1", "index": "2"}),
-				deppy.Identifier("2-1"): *input.NewEntity("2-1", map[string]string{"source": "2", "index": "1"}),
-				deppy.Identifier("2-2"): *input.NewEntity("2-2", map[string]string{"source": "2", "index": "2"}),
+			entities := map[deppy.Identifier]deppyentity.Entity{
+				deppy.Identifier("1-1"): *deppyentity.NewEntity("1-1", map[string]string{"source": "1", "index": "1"}),
+				deppy.Identifier("1-2"): *deppyentity.NewEntity("1-2", map[string]string{"source": "1", "index": "2"}),
+				deppy.Identifier("2-1"): *deppyentity.NewEntity("2-1", map[string]string{"source": "2", "index": "1"}),
+				deppy.Identifier("2-2"): *deppyentity.NewEntity("2-2", map[string]string{"source": "2", "index": "2"}),
 			}
 			entitySource = input.NewCacheQuerier(entities)
 		})
@@ -101,7 +105,7 @@ var _ = Describe("EntitySource", func() {
 				id := func(element interface{}) string {
 					return fmt.Sprintf("%v", element)
 				}
-				el, err := entitySource.Filter(context.Background(), input.Or(byIndex("2"), bySource("1")))
+				el, err := entitySource.Filter(context.Background(), query.Or(byIndex("2"), bySource("1")).Predicate())
 				Expect(err).To(BeNil())
 				Expect(el).To(MatchAllElements(id, Elements{
 					"{1-2 map[index:2 source:1]}": Not(BeNil()),
@@ -116,7 +120,7 @@ var _ = Describe("EntitySource", func() {
 					"1-1": Not(BeNil()),
 				}))
 
-				el, err = entitySource.Filter(context.Background(), input.And(byIndex("2"), bySource("1")))
+				el, err = entitySource.Filter(context.Background(), query.And(byIndex("2"), bySource("1")).Predicate())
 				Expect(err).To(BeNil())
 				Expect(el).To(MatchAllElements(id, Elements{
 					"{1-2 map[index:2 source:1]}": Not(BeNil()),
@@ -127,7 +131,7 @@ var _ = Describe("EntitySource", func() {
 					"1-2": Not(BeNil()),
 				}))
 
-				el, err = entitySource.Filter(context.Background(), input.And(byIndex("2"), input.Not(bySource("1"))))
+				el, err = entitySource.Filter(context.Background(), query.And(byIndex("2"), query.Not(bySource("1"))).Predicate())
 				Expect(err).To(BeNil())
 				Expect(el).To(MatchAllElements(id, Elements{
 					"{2-2 map[index:2 source:2]}": Not(BeNil()),

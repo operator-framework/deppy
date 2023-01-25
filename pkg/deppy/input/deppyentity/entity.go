@@ -1,4 +1,4 @@
-package input
+package deppyentity
 
 import (
 	"github.com/operator-framework/deppy/pkg/deppy"

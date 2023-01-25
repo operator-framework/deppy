@@ -3,6 +3,7 @@ package dimacs
 import (
 	"github.com/operator-framework/deppy/pkg/deppy"
 	"github.com/operator-framework/deppy/pkg/deppy/input"
+	"github.com/operator-framework/deppy/pkg/deppy/input/deppyentity"
 )
 
 var _ input.EntitySource = &EntitySource{}
@@ -12,10 +13,10 @@ type EntitySource struct {
 }
 
 func NewDimacsEntitySource(dimacs *Dimacs) *EntitySource {
-	entities := make(map[deppy.Identifier]input.Entity, len(dimacs.Variables()))
+	entities := make(map[deppy.Identifier]deppyentity.Entity, len(dimacs.Variables()))
 	for _, variable := range dimacs.Variables() {
 		id := deppy.Identifier(variable)
-		entities[id] = *input.NewEntity(id, nil)
+		entities[id] = *deppyentity.NewEntity(id, nil)
 	}
 
 	return &EntitySource{
