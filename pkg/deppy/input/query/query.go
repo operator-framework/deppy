@@ -7,25 +7,6 @@ import (
 // Predicate returns true if the entity should be kept when filtering
 type Predicate func(entity *deppyentity.Entity) (bool, error)
 
-// predicateConfig defines options for how predicates should be evaluated
-type predicateConfig struct {
-	treatErrorAsFalse bool
-}
-
-func (c *predicateConfig) apply(options []PredicateOption) *predicateConfig {
-	for _, opt := range options {
-		opt(c)
-	}
-	return c
-}
-
-// defaultPredicateConfig returns the default predicate config
-func defaultPredicateConfig() *predicateConfig {
-	return &predicateConfig{
-		treatErrorAsFalse: false,
-	}
-}
-
 // PredicateOption allows the predicate config to be mutated
 type PredicateOption func(config *predicateConfig)
 
@@ -34,6 +15,24 @@ type PredicateOption func(config *predicateConfig)
 func TreatErrorAsFalse() PredicateOption {
 	return func(config *predicateConfig) {
 		config.treatErrorAsFalse = true
+	}
+}
+
+// predicateConfig defines options for how predicates should be evaluated
+type predicateConfig struct {
+	treatErrorAsFalse bool
+}
+
+func (c *predicateConfig) apply(options []PredicateOption) {
+	for _, opt := range options {
+		opt(c)
+	}
+}
+
+// defaultPredicateConfig returns the default predicate config
+func defaultPredicateConfig() *predicateConfig {
+	return &predicateConfig{
+		treatErrorAsFalse: false,
 	}
 }
 
