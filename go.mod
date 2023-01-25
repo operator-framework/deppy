@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/go-air/gini v1.0.4
+	github.com/google/uuid v1.3.0
 	github.com/onsi/ginkgo/v2 v2.3.1
 	github.com/onsi/gomega v1.22.1
 	github.com/spf13/cobra v1.4.0
