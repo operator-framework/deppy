@@ -2,19 +2,16 @@ package catalogsource
 
 import (
 	"context"
-	"fmt"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
-	"google.golang.org/grpc/connectivity"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -22,105 +19,145 @@ import (
 	"github.com/operator-framework/deppy/pkg/deppy/input"
 )
 
-const catalogSourceSelectorLabel = "olm.catalogSource"
+const defaultCatalogSourceSyncInterval = 5 * time.Minute
 
 type CachedRegistryEntitySource struct {
 	sync.RWMutex
-	watch   watch.Interface
-	client  client.Client
-	rClient RegistryClient
-	logger  *logr.Logger
-	cache   map[string]sourceCache
-	done    chan struct{}
+	client       client.WithWatch
+	rClient      RegistryClient
+	logger       *logr.Logger
+	cache        map[string]sourceCache
+	done         chan struct{}
+	queue        workqueue.RateLimitingInterface // for unmanaged catalogsources
+	syncInterval time.Duration
 }
 
 type sourceCache struct {
-	Items   []*input.Entity
-	imageID string
+	Items []*input.Entity
 }
 
-func NewCachedRegistryQuerier(watch watch.Interface, client client.Client, rClient RegistryClient, logger *logr.Logger) *CachedRegistryEntitySource {
+type Option func(*CachedRegistryEntitySource)
+
+func WithSyncInterval(d time.Duration) Option {
+	return func(c *CachedRegistryEntitySource) {
+		c.syncInterval = d
+	}
+}
+
+func NewCachedRegistryQuerier(client client.WithWatch, rClient RegistryClient, logger *logr.Logger, options ...Option) *CachedRegistryEntitySource {
 	if logger == nil {
-		*logger = zap.New()
+		l := zap.New()
+		logger = &l
 	}
-	return &CachedRegistryEntitySource{
-		watch:   watch,
-		client:  client,
-		rClient: rClient,
-		logger:  logger,
-		done:    make(chan struct{}),
-		cache:   map[string]sourceCache{},
+	c := &CachedRegistryEntitySource{
+		client:       client,
+		rClient:      rClient,
+		logger:       logger,
+		done:         make(chan struct{}),
+		cache:        map[string]sourceCache{},
+		queue:        workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		syncInterval: defaultCatalogSourceSyncInterval,
 	}
+	for _, o := range options {
+		o(c)
+	}
+	return c
 }
 
-func (r *CachedRegistryEntitySource) StartCache(ctx context.Context) {
+func (r *CachedRegistryEntitySource) Start(ctx context.Context) {
 	// TODO: constraints for limiting watched catalogSources
 	// TODO: respect CatalogSource priorities
+	catalogSourceWatch, err := r.client.Watch(ctx, &v1alpha1.CatalogSourceList{})
+	if err != nil {
+		r.logger.Error(err, "failed to start catalogsource watch")
+		return
+	}
 	if err := r.populate(ctx); err != nil {
 		r.logger.Error(err, "error populating initial entity cache")
 	} else {
 		r.logger.Info("Populated initial cache")
 	}
+	// watching catalogSource for changes works only with OLM managed catalogSources.
+	go r.ProcessQueue(ctx)
 	for {
 		select {
 		case <-r.done:
 			return
-		case entry := <-r.watch.ResultChan():
-			catalogSource, err := catalogSourceFromObject(entry.Object)
+		case entry := <-catalogSourceWatch.ResultChan():
+			encodedObj, err := json.Marshal(entry.Object)
 			if err != nil {
-				r.logger.Error(err, "cannot reconcile catalogSource event", "event", entry.Type, "object", entry.Object)
+				r.logger.Error(err, "cannot reconcile non-catalogSource: marshalling failed", "event", entry.Type, "object", entry.Object)
 				continue
 			}
-			catalogSourceKey := types.NamespacedName{Namespace: catalogSource.Namespace, Name: catalogSource.Name}.String()
+			catalogSource := v1alpha1.CatalogSource{}
+			err = json.Unmarshal(encodedObj, &catalogSource)
+			if err != nil {
+				r.logger.Error(err, "cannot reconcile non-catalogSource: unmarshalling failed", "event", entry.Type, "object", entry.Object)
+				continue
+			}
+
 			switch entry.Type {
 			case watch.Deleted:
 				func() {
 					r.RWMutex.Lock()
 					defer r.RWMutex.Unlock()
-					delete(r.cache, catalogSourceKey)
-					r.logger.Info("Completed cache delete", "catalogSource", catalogSourceKey, "event", entry.Type)
+					catalogSourceKey := types.NamespacedName{Namespace: catalogSource.Namespace, Name: catalogSource.Name}
+					delete(r.cache, catalogSourceKey.String())
+					r.logger.Info("Completed cache delete", "catalogSource", catalogSourceKey)
 				}()
 			case watch.Added, watch.Modified:
-				func() {
-					r.RWMutex.Lock()
-					defer r.RWMutex.Unlock()
-					if !catalogSourceReady(catalogSource) {
-						return
-					}
-					imageID, err := r.imageIDFromCatalogSource(ctx, catalogSource)
-					if err != nil {
-						r.logger.V(1).Info(fmt.Sprintf("failed to get latest imageID for catalogSource %s/%s, skipping cache update: %v", catalogSource.Name, catalogSource.Namespace, err))
-						return
-					}
-					if len(imageID) == 0 {
-						// This shouldn't happen, catalogSource would need to be nil
-						return
-					}
-					if oldEntry, ok := r.cache[catalogSourceKey]; ok && imageID == oldEntry.imageID {
-						// image hasn't changed since last sync
-						return
-					}
-					entities, err := r.rClient.ListEntities(ctx, catalogSource)
-					if err != nil {
-						r.logger.Error(err, "failed to list entities for catalogSource entity cache update", "catalogSource", catalogSourceKey)
-						return
-					}
-					r.cache[catalogSourceKey] = sourceCache{
-						Items:   entities,
-						imageID: imageID,
-					}
-					r.logger.Info("Completed cache update", "catalogSource", catalogSourceKey, "event", entry.Type)
-				}()
+				r.syncCatalogSource(ctx, catalogSource)
 			}
+		case <-ctx.Done():
+			r.Stop()
 		}
 	}
 }
 
-func (r *CachedRegistryEntitySource) StopCache() {
+func (r *CachedRegistryEntitySource) Stop() {
 	r.RWMutex.Lock()
 	defer r.RWMutex.Unlock()
-
+	r.queue.ShutDown()
 	close(r.done)
+}
+
+func (r *CachedRegistryEntitySource) ProcessQueue(ctx context.Context) {
+	for {
+		item, _ := r.queue.Get() // block till there is a new item
+		defer r.queue.Done(item)
+		if _, ok := item.(types.NamespacedName); ok {
+			var catalogSource v1alpha1.CatalogSource
+			if err := r.client.Get(ctx, item.(types.NamespacedName), &catalogSource); err != nil {
+				r.logger.Info("cannot find catalogSource, skipping cache update", "CatalogSource", item)
+				return
+			}
+			r.syncCatalogSource(ctx, catalogSource)
+		}
+	}
+}
+
+// handle added or updated catalogSource
+func (r *CachedRegistryEntitySource) syncCatalogSource(ctx context.Context, catalogSource v1alpha1.CatalogSource) {
+	catalogSourceKey := types.NamespacedName{Namespace: catalogSource.Namespace, Name: catalogSource.Name}
+	r.RWMutex.Lock()
+	defer r.RWMutex.Unlock()
+	entities, err := r.rClient.ListEntities(ctx, &catalogSource)
+	if err != nil {
+		r.logger.Error(err, "failed to list entities for catalogSource entity cache update", "catalogSource", catalogSourceKey)
+		if !isManagedCatalogSource(catalogSource) {
+			r.queue.AddRateLimited(catalogSourceKey)
+		}
+		return
+	}
+	r.cache[catalogSourceKey.String()] = sourceCache{
+		Items: entities,
+		//imageID: imageID,
+	}
+	if !isManagedCatalogSource(catalogSource) {
+		r.queue.Forget(catalogSourceKey)
+		r.queue.AddAfter(catalogSourceKey, r.syncInterval)
+	}
+	r.logger.Info("Completed cache update", "catalogSource", catalogSourceKey)
 }
 
 func (r *CachedRegistryEntitySource) Get(ctx context.Context, id deppy.Identifier) *input.Entity {
@@ -188,26 +225,15 @@ func (r *CachedRegistryEntitySource) populate(ctx context.Context) error {
 	}
 	var errs []error
 	for _, catalogSource := range catalogSourceList.Items {
-		if !catalogSourceReady(&catalogSource) {
-			continue
-		}
-		imageID, err := r.imageIDFromCatalogSource(ctx, &catalogSource)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		if len(imageID) == 0 {
-			continue
-		}
 		entities, err := r.rClient.ListEntities(ctx, &catalogSource)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
-		catalogSourceKey := types.NamespacedName{Namespace: catalogSource.Namespace, Name: catalogSource.Name}.String()
-		r.cache[catalogSourceKey] = sourceCache{
-			Items:   entities,
-			imageID: imageID,
+		catalogSourceKey := types.NamespacedName{Namespace: catalogSource.Namespace, Name: catalogSource.Name}
+		r.cache[catalogSourceKey.String()] = sourceCache{
+			Items: entities,
+			//imageID: imageID,
 		}
 	}
 	if len(errs) > 0 {
@@ -216,67 +242,7 @@ func (r *CachedRegistryEntitySource) populate(ctx context.Context) error {
 	return nil
 }
 
-// imageIDFromCatalogSource returns the current image ref being run by a catalogSource
-func (r *CachedRegistryEntitySource) imageIDFromCatalogSource(ctx context.Context, catalogSource *v1alpha1.CatalogSource) (string, error) {
-	if catalogSource == nil {
-		return "", nil
-	}
-	svc := corev1.Service{}
-	svcName := types.NamespacedName{
-		Namespace: catalogSource.Status.RegistryServiceStatus.ServiceNamespace,
-		Name:      catalogSource.Status.RegistryServiceStatus.ServiceName,
-	}
-	if err := r.client.Get(ctx, svcName,
-		&svc); err != nil {
-		// Cannot detect the backing service, don't refresh cache
-		return "", fmt.Errorf("failed to get service %s for catalogSource %s/%s: %v", svcName, catalogSource.Namespace, catalogSource.Name, err)
-	}
-	if len(svc.Spec.Selector[catalogSourceSelectorLabel]) == 0 {
-		// Cannot verify if image is recent
-		return "", fmt.Errorf("failed to get pod for service %s for catalogSource %s/%s: missing selector %s", svcName, catalogSource.Namespace, catalogSource.Name, catalogSourceSelectorLabel)
-	}
-	pods := corev1.PodList{}
-	if err := r.client.List(ctx, &pods,
-		client.MatchingLabelsSelector{
-			Selector: labels.SelectorFromValidatedSet(
-				map[string]string{catalogSourceSelectorLabel: svc.Spec.Selector[catalogSourceSelectorLabel]},
-			)}); err != nil {
-		return "", fmt.Errorf("failed to get pod for catalogSource %s/%s: %v", catalogSource.Namespace, catalogSource.Name, err)
-	}
-	if len(pods.Items) < 1 {
-		return "", fmt.Errorf("failed to get pod for catalogSource %s/%s: no pods matching selector %s", catalogSource.Namespace, catalogSource.Name, catalogSourceSelectorLabel)
-	}
-	if len(pods.Items[0].Status.ContainerStatuses) < 1 {
-		// pod not ready
-		return "", fmt.Errorf("failed to read imageID from catalogSource pod %s/%s: no containers ready on pod", pods.Items[0].Namespace, pods.Items[0].Name)
-	}
-	if len(pods.Items[0].Status.ContainerStatuses[0].ImageID) == 0 {
-		// pod not ready
-		return "", fmt.Errorf("failed to read imageID from catalogSource pod %s/%s: container state: %s", pods.Items[0].Namespace, pods.Items[0].Name, pods.Items[0].Status.ContainerStatuses[0].State)
-	}
-	return pods.Items[0].Status.ContainerStatuses[0].ImageID, nil
-}
-
-func catalogSourceFromObject(obj runtime.Object) (*v1alpha1.CatalogSource, error) {
-	// necessary, as obj only accepts direct typecasting to Unstructured
-	encodedObj, err := json.Marshal(obj)
-	if err != nil {
-		return nil, fmt.Errorf("object conversion failed: %v", err)
-	}
-	catalogSource := v1alpha1.CatalogSource{}
-	err = json.Unmarshal(encodedObj, &catalogSource)
-	if err != nil {
-		return nil, fmt.Errorf("object unmarshalling failed: %v", err)
-	}
-	return &catalogSource, nil
-}
-
-func catalogSourceReady(catalogSource *v1alpha1.CatalogSource) bool {
-	if catalogSource == nil {
-		return false
-	}
-	if catalogSource.Status.GRPCConnectionState == nil {
-		return false
-	}
-	return catalogSource.Status.GRPCConnectionState.LastObservedState == connectivity.Ready.String()
+// TODO: find better way to identify catalogSources unmanaged by olm
+func isManagedCatalogSource(catalogSource v1alpha1.CatalogSource) bool {
+	return len(catalogSource.Spec.Address) == 0
 }

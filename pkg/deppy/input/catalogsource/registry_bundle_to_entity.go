@@ -25,26 +25,27 @@ type DefaultChannel struct {
 	DefaultChannel string `json:"defaultchannel"`
 }
 
-type BundleSource struct {
-	// possibly extend with support for other types of sources
-	Path string `json:"bundlepath,omitempty"`
-}
+const (
+	TypeDefaultChannel = "olm.package.defaultChannel"
+	TypeBundleSource   = "olm.bundle.path"
+	TypeLabel          = "olm.label"
+	TypeLabelRequired  = "olm.label.required"
+)
 
-const TypeDefaultChannel = "olm.package.defaultchannel"
-const TypeBundleSource = "olm.bundle.path"
-
-func entityFromBundle(catsrcID string, pkg *catalogsourceapi.Package, bundle *catalogsourceapi.Bundle) (*input.Entity, error) {
+func EntityFromBundle(catsrcID string, pkg *catalogsourceapi.Package, bundle *catalogsourceapi.Bundle) (*input.Entity, error) {
 	properties := map[string]string{}
 	var errs []error
 
-	// All properties are json encoded lists of values, regarless of property type.
-	// They can all be handled by unmarshalling into an (interface{}) - deppy does not need to know how to handle different types of properties.
-	propsList := map[string]map[string]struct{}{
-		property.TypeGVK:         {},
-		property.TypeGVKRequired: {},
-		//		property.TypePackage:         {},
-		property.TypePackageRequired: {},
-		//		property.TypeChannel:         {},
+	// Multivalue properties
+	propsList := map[string]map[string]struct{}{}
+
+	setPropertyValue := func(key, value string) {
+		if _, ok := propsList[key]; !ok {
+			propsList[key] = map[string]struct{}{}
+		}
+		if _, ok := propsList[key][value]; !ok {
+			propsList[key][value] = struct{}{}
+		}
 	}
 
 	for _, prvAPI := range bundle.ProvidedApis {
@@ -53,7 +54,7 @@ func entityFromBundle(catsrcID string, pkg *catalogsourceapi.Package, bundle *ca
 			errs = append(errs, err)
 			continue
 		}
-		propsList[property.TypeGVK][string(apiValue)] = struct{}{}
+		setPropertyValue(property.TypeGVK, string(apiValue))
 	}
 
 	for _, reqAPI := range bundle.RequiredApis {
@@ -62,72 +63,31 @@ func entityFromBundle(catsrcID string, pkg *catalogsourceapi.Package, bundle *ca
 			errs = append(errs, err)
 			continue
 		}
-		propsList[property.TypeGVKRequired][string(apiValue)] = struct{}{}
+		setPropertyValue(property.TypeGVKRequired, string(apiValue))
 	}
 
 	for _, reqAPI := range bundle.Dependencies {
-		propsList[property.TypeGVKRequired][reqAPI.Value] = struct{}{}
+		switch reqAPI.Type {
+		case property.TypeGVK:
+			setPropertyValue(property.TypeGVKRequired, reqAPI.Value)
+		case property.TypePackage:
+			setPropertyValue(property.TypePackageRequired, reqAPI.Value)
+		case TypeLabel: // legacy property
+			setPropertyValue(TypeLabelRequired, reqAPI.Value)
+		default:
+			setPropertyValue(reqAPI.Type, reqAPI.Value)
+		}
 	}
 
-	pkgValue, err := util.JSONMarshal(property.Package{
-		PackageName: bundle.PackageName,
-		Version:     bundle.Version,
-	})
-	if err != nil {
-		errs = append(errs, err)
-	} else {
-		properties[property.TypePackage] = string(pkgValue)
-		//		propsList[property.TypePackage][string(pkgValue)] = struct{}{}
+	ignoredProperties := map[string]struct{}{
+		property.TypeBundleObject: {},
 	}
-
-	upValue, err := util.JSONMarshal(UpgradeEdge{
-		Channel: property.Channel{
-			ChannelName: bundle.ChannelName,
-		},
-		Replaces:  bundle.Replaces,
-		Skips:     bundle.Skips,
-		SkipRange: bundle.SkipRange,
-		//		Version:   bundle.Version,
-	})
-	if err != nil {
-		errs = append(errs, err)
-	} else {
-		properties[property.TypeChannel] = string(upValue)
-		//		propsList[property.TypeChannel][string(upValue)] = struct{}{}
-	}
-
-	defaultValue, err := util.JSONMarshal(DefaultChannel{
-		DefaultChannel: pkg.DefaultChannelName,
-	})
-	if err != nil {
-		errs = append(errs, err)
-	} else {
-		propsList[TypeDefaultChannel] = map[string]struct{}{string(defaultValue): {}}
-	}
-
-	//sourceValue, err := util.JSONMarshal(BundleSource{
-	//	Path: bundle.BundlePath,
-	//})
-	//if err != nil {
-	//	errs = append(errs, err)
-	//} else {
-	//	propsList[TypeBundleSource] = map[string]struct{}{string(sourceValue): {}}
-	//}
-	properties[TypeBundleSource] = bundle.BundlePath
 
 	for _, p := range bundle.Properties {
-		if p.Type == property.TypeChannel || p.Type == property.TypePackage || p.Type == TypeDefaultChannel {
-			// avoid duplicates
+		if _, ok := ignoredProperties[p.Type]; ok {
 			continue
 		}
-		//if p.Type == property.TypePackage {
-		//	// override the inferred package if explicitly specified in bundle properties
-		//	propsList[p.Type] = map[string]struct{}{p.Value: {}}
-		//}
-		if _, ok := propsList[p.Type]; !ok {
-			propsList[p.Type] = map[string]struct{}{}
-		}
-		propsList[p.Type][p.Value] = struct{}{}
+		setPropertyValue(p.Type, p.Value)
 	}
 
 	for pType, pValues := range propsList {
@@ -157,10 +117,45 @@ func entityFromBundle(catsrcID string, pkg *catalogsourceapi.Package, bundle *ca
 		}
 		properties[pType] = string(pValue)
 	}
+
+	// Singleton properties.
+	// `olm.package`, `olm.channel`, `olm.defaultChannel`
+	pkgValue, err := util.JSONMarshal(property.Package{
+		PackageName: bundle.PackageName,
+		Version:     bundle.Version,
+	})
+	if err != nil {
+		errs = append(errs, err)
+	} else {
+		properties[property.TypePackage] = string(pkgValue)
+	}
+
+	upValue, err := util.JSONMarshal(UpgradeEdge{
+		Channel: property.Channel{
+			ChannelName: bundle.ChannelName,
+		},
+		Replaces:  bundle.Replaces,
+		Skips:     bundle.Skips,
+		SkipRange: bundle.SkipRange,
+		//		Version:   bundle.Version,
+	})
+	if err != nil {
+		errs = append(errs, err)
+	} else {
+		properties[property.TypeChannel] = string(upValue)
+	}
+
+	properties[TypeDefaultChannel] = pkg.DefaultChannelName
+	properties[TypeBundleSource] = bundle.BundlePath
+
 	if len(errs) > 0 {
 		return nil, fmt.Errorf("failed to parse properties for bundle %s/%s in %s: %v", bundle.GetPackageName(), bundle.GetVersion(), catsrcID, errors.NewAggregate(errs))
 	}
 
-	entityID := deppy.Identifier(fmt.Sprintf("%s/%s/%s/%s", catsrcID, bundle.PackageName, bundle.ChannelName, bundle.Version))
-	return input.NewEntity(entityID, properties), nil
+	// Since multiple instances of bundle may exist for different channels, entityID must include reference to channel
+	entityIDFromBundle := func(catsrcID string, bundle *catalogsourceapi.Bundle) deppy.Identifier {
+		return deppy.Identifier(fmt.Sprintf("%s/%s/%s/%s", catsrcID, bundle.PackageName, bundle.ChannelName, bundle.Version))
+	}
+
+	return input.NewEntity(entityIDFromBundle(catsrcID, bundle), properties), nil
 }

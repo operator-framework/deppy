@@ -9,7 +9,6 @@ import (
 
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	catalogsourceapi "github.com/operator-framework/operator-registry/pkg/api"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/operator-framework/deppy/pkg/deppy/input"
 	"github.com/operator-framework/deppy/pkg/lib/grpc"
@@ -21,19 +20,18 @@ type RegistryClient interface {
 
 type registryGRPCClient struct {
 	timeout time.Duration
-	client  client.Client
 }
 
-func NewRegistryGRPCClient(grpcTimeout time.Duration, client client.Client) RegistryClient {
+func NewRegistryGRPCClient(grpcTimeout time.Duration) RegistryClient {
 	if grpcTimeout == 0 {
 		grpcTimeout = grpc.DefaultGRPCTimeout
 	}
-	return &registryGRPCClient{timeout: grpcTimeout, client: client}
+	return &registryGRPCClient{timeout: grpcTimeout}
 }
 
 func (r *registryGRPCClient) ListEntities(ctx context.Context, catalogSource *v1alpha1.CatalogSource) ([]*input.Entity, error) {
 	// TODO: create GRPC connections separately
-	conn, err := grpc.ConnectWithTimeout(ctx, "127.0.0.1:50051", r.timeout)
+	conn, err := grpc.ConnectWithTimeout(ctx, catalogSource.Address(), r.timeout)
 	if conn != nil {
 		defer conn.Close()
 	}
@@ -70,7 +68,7 @@ func (r *registryGRPCClient) ListEntities(ctx context.Context, catalogSource *v1
 			catalogPackages[packageKey] = pkg
 		}
 
-		entity, err := entityFromBundle(catalogSourceID, pkg, bundle)
+		entity, err := EntityFromBundle(catalogSourceID, pkg, bundle)
 		if err != nil {
 			return entities, fmt.Errorf("failed to parse entity %s: %v", entity.Identifier(), err)
 		}

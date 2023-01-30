@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-const DefaultGRPCTimeout = 1 * time.Minute
+const DefaultGRPCTimeout = 2 * time.Minute
 
 func ConnectWithTimeout(ctx context.Context, address string, timeout time.Duration) (conn *grpc.ClientConn, err error) {
 	conn, err = grpcConnection(address)
@@ -27,14 +27,14 @@ func ConnectWithTimeout(ctx context.Context, address string, timeout time.Durati
 		timeout = DefaultGRPCTimeout
 	}
 
-	if err := waitForGRPCWithTimeout(ctx, conn, timeout); err != nil {
+	if err := waitForGRPCWithTimeout(ctx, conn, timeout, address); err != nil {
 		return conn, fmt.Errorf("GRPC timeout: %v", err)
 	}
 
 	return conn, nil
 }
 
-func waitForGRPCWithTimeout(ctx context.Context, conn *grpc.ClientConn, timeout time.Duration) error {
+func waitForGRPCWithTimeout(ctx context.Context, conn *grpc.ClientConn, timeout time.Duration, address string) error {
 	if conn == nil {
 		return fmt.Errorf("nil connection")
 	}
@@ -42,14 +42,20 @@ func waitForGRPCWithTimeout(ctx context.Context, conn *grpc.ClientConn, timeout 
 	if state == connectivity.Ready {
 		return nil
 	}
+	oldState := state
+	fmt.Printf("%v %s Connection state: %v\n", time.Now(), address, state)
 	ctx2, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	for {
 		select {
 		case <-ctx2.Done():
-			return fmt.Errorf("timed out waiting for ready state")
+			return fmt.Errorf("%v %s timed out waiting for ready state, %v", time.Now(), address, timeout)
 		default:
 			state := conn.GetState()
+			if state != oldState {
+				fmt.Printf("%v %s Connection state: %v\n", time.Now(), address, state)
+				oldState = state
+			}
 			if state == connectivity.Ready {
 				return nil
 			}
