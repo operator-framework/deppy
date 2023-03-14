@@ -72,11 +72,6 @@ var _ = Describe("Route", func() {
 
 })
 
-func TestRoute(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Route tests")
-}
-
 func isClosed(ch <-chan pipeline.Event) bool {
 	select {
 	case <-ch:
@@ -84,4 +79,9 @@ func isClosed(ch <-chan pipeline.Event) bool {
 	default:
 	}
 	return false
+}
+
+func TestRoute(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Route tests")
 }

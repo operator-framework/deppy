@@ -20,6 +20,10 @@ type EventHeader interface {
 	Metadata() EventMetadata
 }
 
+type EventSource interface {
+	EventSourceID() EventSourceID
+}
+
 type EventIDProvider interface {
 	NextEventID() EventID
 }

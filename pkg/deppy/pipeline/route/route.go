@@ -26,12 +26,12 @@ type Route struct {
 	lock sync.RWMutex
 }
 
-func (c *Route) CloseInputChannel() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if !c.inputChannelClosed && c.inputChannel != nil {
-		close(c.inputChannel)
-		c.inputChannelClosed = true
+func (r *Route) CloseInputChannel() {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	if !r.inputChannelClosed && r.inputChannel != nil {
+		close(r.inputChannel)
+		r.inputChannelClosed = true
 	}
 }
 
@@ -61,4 +61,9 @@ func (c *Route) notifyConnectionDoneListeners(ctx context.Context) {
 			}
 		}(doneCh)
 	}
+}
+
+func (c *Route) ConnectionDone(ctx context.Context) {
+	c.CloseInputChannel()
+	c.notifyConnectionDoneListeners(ctx)
 }
