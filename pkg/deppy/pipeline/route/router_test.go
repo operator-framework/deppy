@@ -2,7 +2,6 @@ package route
 
 import (
 	"context"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -14,7 +13,8 @@ var _ = Describe("Router", func() {
 	defer GinkgoRecover()
 
 	var (
-		ctx context.Context
+		ctx    context.Context
+		router *Router
 	)
 
 	BeforeEach(func() {
@@ -43,9 +43,6 @@ var _ = Describe("Router", func() {
 	})
 
 	When("adding a route", func() {
-		var (
-			router *Router
-		)
 		BeforeEach(func() {
 			router = NewEventRouter(ctx)
 		})
@@ -91,37 +88,176 @@ var _ = Describe("Router", func() {
 		})
 	})
 
-	When("routing an event", func() {
-		var (
-			router *Router
-		)
+	When("fetching the right route", func() {
 		BeforeEach(func() {
 			router = NewEventRouter(ctx)
 			Expect(router.debugChannel).To(BeNil())
 
-			testSource := &testeventSource{"node"}
-			router.AddRoute(testSource)
+			testSource1 := &testeventSource{"node1"}
+			router.AddRoute(testSource1)
+
+			testSource2 := &testeventSource{"node2"}
+			router.AddRoute(testSource2)
+
+			Expect(len(router.routeTable)).To(BeEquivalentTo(2))
 		})
 
-		It("routes the event as expected", func() {
+		It("fetches the route to an existing event source", func() {
+			route, exists := router.GetRoute(pipeline.EventSourceID("node1"))
+			Expect(route).NotTo(BeNil())
+			Expect(exists).To(BeTrue())
+		})
+
+		It("fetches nil route to a non-existing event source", func() {
+			route, exists := router.GetRoute(pipeline.EventSourceID("notexistentNode"))
+			Expect(route).To(BeNil())
+			Expect(exists).To(BeFalse())
+		})
+
+		It("fetches all routes in the routing table", func() {
+			allRoutes := router.getAllRoutes()
+			Expect(len(allRoutes)).To(BeEquivalentTo(2))
+		})
+
+	})
+
+	When("routing an event to a specific input channel", func() {
+		BeforeEach(func() {
+			router = NewEventRouter(ctx)
+			// TODO: add tests with a non-nil debug channel
+			Expect(router.debugChannel).To(BeNil())
+
+			testSource1 := &testeventSource{"node1"}
+			router.AddRoute(testSource1)
+
+			testSource2 := &testeventSource{"node2"}
+			router.AddRoute(testSource2)
+
+			Expect(len(router.routeTable)).To(BeEquivalentTo(2))
+		})
+
+		AfterEach(func() {
+			router.ctx.Done()
+		})
+
+		It("routes a broadcast event as expected", func() {
+			By("making the event to be a broadcast event")
 			evt := getNewTestEvent()
 			evt.Broadcast()
+
+			By("ensuring that event header is correctly set for broadcast")
+			Expect(evt.Header().IsBroadcastEvent()).To(BeTrue())
 
 			Expect(func() {
 				router.route(evt)
 			}).NotTo(Panic())
 
-			router.ctx.Done()
+			By("verifying if each input channel in the routing table has received the event")
+
+			noData := true
+			for _, conn := range router.routeTable {
+				select {
+				case data, exists := <-conn.inputChannel:
+					Expect(exists).To(BeTrue())
+					Expect(data).NotTo(BeNil())
+					Expect(data.String()).To(ContainSubstring("testEvent"))
+				default:
+					// It shouldn't be reaching this. Hence checking with a boolean
+					noData = false
+				}
+				Expect(noData).To(BeTrue())
+			}
 		})
 
+		It("routes an event to a specific receiver", func() {
+			By("creating a new event and setting its receiver")
+			evt := getNewTestEvent()
+			evt.Route("node2")
+
+			By("ensuring that the header of the event is set as expected")
+			Expect(evt.Header().Receiver()).To(BeEquivalentTo("node2"))
+
+			Expect(func() {
+				router.route(evt)
+			}).NotTo(Panic())
+
+			By("verifying if the event has not been routed to node1")
+			connForNode1, exists := router.GetRoute(pipeline.EventSourceID("node1"))
+			Expect(exists).To(BeTrue())
+			Expect(connForNode1).NotTo(BeNil())
+
+			noData := false
+			select {
+			// Shouldn't be entering this case. Do we remove this?
+			case receivedMsg, exists := <-connForNode1.inputChannel:
+				Expect(receivedMsg).To(BeNil())
+				Expect(exists).To(BeFalse())
+			default:
+				noData = true
+			}
+			Expect(noData).To(BeTrue())
+
+			By("verifying if the event has been routed to node2")
+			connForNode2, exists := router.GetRoute(pipeline.EventSourceID("node2"))
+			Expect(exists).To(BeTrue())
+			Expect(connForNode2).NotTo(BeNil())
+
+			noData = true
+			select {
+			case receivedMsg, exists := <-connForNode2.inputChannel:
+				Expect(receivedMsg.String()).To(ContainSubstring("testEvent"))
+				Expect(exists).To(BeTrue())
+			default:
+				// Shouldn't be entering default.
+				noData = false
+			}
+			Expect(noData).To(BeTrue())
+		})
 	})
 
-})
+	When("send output event", func() {
+		BeforeEach(func() {
+			router = NewEventRouter(ctx)
+			testSource1 := &testeventSource{"node1"}
+			router.AddRoute(testSource1)
 
-func TestRouter(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Router tests")
-}
+			Expect(len(router.routeTable)).To(BeEquivalentTo(1))
+		})
+
+		It("correctly routes the events", func() {
+			// Create an event with its receiver set to node2
+			By("creating a new event and setting its receiver")
+			evt := getNewTestEvent()
+			evt.Route("node2")
+
+			By("push this event into node 1's output channel")
+			Expect(func() {
+				router.SendOutputEvent(evt, pipeline.EventSourceID("node1"))
+			}).NotTo(Panic())
+
+			By("verifying if the event has been sent successfully")
+			conn, ok := router.GetRoute("node1")
+			Expect(ok).To(BeTrue())
+			Expect(conn).NotTo(BeNil())
+
+			noData := false
+			select {
+			case receivedMsg, exists := <-conn.outputChannel:
+				Expect(receivedMsg.String()).To(ContainSubstring("testEvent"))
+				Expect(exists).To(BeTrue())
+			default:
+				// Shouldn't be entering default.
+				noData = true
+			}
+			Expect(noData).To(BeFalse())
+
+		})
+
+		AfterEach(func() {
+			router.ctx.Done()
+		})
+	})
+})
 
 func getNewTestEvent() pipeline.Event {
 	factory := event.NewEventFactory[string]("testnode")
@@ -136,4 +272,8 @@ var _ pipeline.EventSource = &testeventSource{}
 
 func (t *testeventSource) EventSourceID() pipeline.EventSourceID {
 	return pipeline.EventSourceID(t.eventsourceID)
+}
+
+func (t *testeventSource) IngressCapacity() int {
+	return 10
 }

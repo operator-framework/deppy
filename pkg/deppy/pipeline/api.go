@@ -22,6 +22,7 @@ type EventHeader interface {
 
 type EventSource interface {
 	EventSourceID() EventSourceID
+	IngressCapacity() int
 }
 
 type EventIDProvider interface {

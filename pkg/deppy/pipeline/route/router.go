@@ -52,9 +52,10 @@ func (r *Router) AddRoute(eventSource pipeline.EventSource) bool {
 
 	if _, ok := r.routeTable[eventSource.EventSourceID()]; !ok {
 		conn := Route{
-			eventSourceID:           eventSource.EventSourceID(),
-			inputChannel:            make(chan pipeline.Event),
-			outputChannel:           make(chan pipeline.Event),
+			eventSourceID: eventSource.EventSourceID(),
+			inputChannel:  make(chan pipeline.Event, eventSource.IngressCapacity()),
+			// output channel should not be limited.
+			outputChannel:           make(chan pipeline.Event, eventSource.IngressCapacity()),
 			connectionDoneListeners: map[chan<- struct{}]struct{}{},
 			inputChannelClosed:      false,
 		}
@@ -95,8 +96,11 @@ func (r *Router) error(event pipeline.ErrorEvent) {
 	}
 }
 
-func (r *Router) Route(event pipeline.Event, receiverEventSource pipeline.EventSource) {
-	route, ok := r.routeTable[receiverEventSource.EventSourceID()]
+// Route takes in the sending event source, fetches the connection details from the
+// routing channel. Takes the content from its output channel and sends over the event
+// to the right input channel as specified in the event header.
+func (r *Router) Route(senderEventSource pipeline.EventSource) {
+	route, ok := r.routeTable[senderEventSource.EventSourceID()]
 	if !ok {
 		// TODO: send an error event in the error channel
 		return
@@ -124,7 +128,12 @@ func (r *Router) Route(event pipeline.Event, receiverEventSource pipeline.EventS
 	}(route)
 }
 
-// route an event based on the header information on the event
+// route an event based on the header information on the event.
+// If the event is a broadcast event, we fetch all the routes from
+// the routing table and send the event to all.
+// If the receiver is specified in the header of the event, the route
+// for the specified event is fetched and the event is directed to its
+// input channel.
 func (r *Router) route(event pipeline.Event) {
 	// debug is a blocking call if the debug channel is set
 	r.debug(event)
@@ -135,6 +144,8 @@ func (r *Router) route(event pipeline.Event) {
 		for _, conn := range conns {
 			if conn.eventSourceID != event.Header().Sender() {
 				func() {
+					if conn.inputChannel == nil {
+					}
 					select {
 					case conn.inputChannel <- event:
 						return
@@ -145,7 +156,7 @@ func (r *Router) route(event pipeline.Event) {
 			}
 		}
 	} else if event.Header().Receiver() != "" {
-		conn, ok := r.GetReceiver(event.Header().Receiver())
+		conn, ok := r.GetRoute(event.Header().Receiver())
 		if !ok {
 			// TODO: create an error event and send it through the error channel.
 		} else {
@@ -156,11 +167,14 @@ func (r *Router) route(event pipeline.Event) {
 				return
 			}
 		}
+	} else {
+		// TODO: send an event through error channel.
+		// errChannel should be non-blocking.
 	}
 }
 
 // RouteTo returns the route for the particular event source from the routing table.
-func (r *Router) GetReceiver(eventSourceID pipeline.EventSourceID) (*Route, bool) {
+func (r *Router) GetRoute(eventSourceID pipeline.EventSourceID) (*Route, bool) {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
 	conn, ok := r.routeTable[eventSourceID]
@@ -176,4 +190,29 @@ func (r *Router) getAllRoutes() []*Route {
 		out = append(out, conn)
 	}
 	return out
+}
+
+// Sendevent sends an event to the eventsource's output channel.
+// This is used by the node to send an event after processing. For this to be used,
+// the event source ID should be in the routing table.
+func (r *Router) SendOutputEvent(event pipeline.Event, sendingSource pipeline.EventSourceID) {
+	conn, ok := r.GetRoute(sendingSource)
+	if !ok {
+		// send an error through errChannel
+		return
+	}
+
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	if conn != nil && conn.outputChannel != nil {
+		func() {
+			select {
+			case conn.outputChannel <- event:
+				return
+			case <-r.ctx.Done():
+				return
+			}
+		}()
+	}
+
 }
