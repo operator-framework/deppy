@@ -24,7 +24,7 @@ type EntityListMap map[string]EntityList
 
 // EntitySource provides a query and content acquisition interface for arbitrary entity stores
 type EntitySource interface {
-	Get(ctx context.Context, id deppy.Identifier) *Entity
+	Get(ctx context.Context, id deppy.Identifier) (*Entity, error)
 	Filter(ctx context.Context, filter Predicate) (EntityList, error)
 	GroupBy(ctx context.Context, fn GroupByFunction) (EntityListMap, error)
 	Iterate(ctx context.Context, fn IteratorFunction) error

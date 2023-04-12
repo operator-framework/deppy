@@ -59,8 +59,8 @@ type MockQuerier struct {
 	testEntityList input.EntityList
 }
 
-func (t MockQuerier) Get(_ context.Context, _ deppy.Identifier) *input.Entity {
-	return &input.Entity{}
+func (t MockQuerier) Get(_ context.Context, _ deppy.Identifier) (*input.Entity, error) {
+	return &input.Entity{}, nil
 }
 func (t MockQuerier) Filter(_ context.Context, filter input.Predicate) (input.EntityList, error) {
 	if t.testError != nil {
