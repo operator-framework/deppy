@@ -90,9 +90,17 @@ var _ = Describe("EntitySource", func() {
 
 		Describe("Get", func() {
 			It("should return requested entity", func() {
-				e := entitySource.Get(context.Background(), "2-2")
+				e, err := entitySource.Get(context.Background(), "2-2")
+				Expect(err).To(BeNil())
 				Expect(e).NotTo(BeNil())
 				Expect(e.Identifier()).To(Equal(deppy.Identifier("2-2")))
+			})
+
+			It("should return an error when the requested entity is not found", func() {
+				e, err := entitySource.Get(context.Background(), "random")
+				Expect(err).To(HaveOccurred())
+				Expect(e).To(BeNil())
+				Expect(err.Error()).To(BeEquivalentTo(fmt.Sprintf("entity with id: %s not found in the entity source", "random")))
 			})
 		})
 

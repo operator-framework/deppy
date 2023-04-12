@@ -2,6 +2,7 @@ package input
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/operator-framework/deppy/pkg/deppy"
 )
@@ -19,11 +20,11 @@ func NewCacheQuerier(entities map[deppy.Identifier]Entity) *CacheEntitySource {
 	}
 }
 
-func (c CacheEntitySource) Get(_ context.Context, id deppy.Identifier) *Entity {
+func (c CacheEntitySource) Get(_ context.Context, id deppy.Identifier) (*Entity, error) {
 	if entity, ok := c.entities[id]; ok {
-		return &entity
+		return &entity, nil
 	}
-	return nil
+	return nil, fmt.Errorf("entity with id: %s not found in the entity source", id.String())
 }
 
 func (c CacheEntitySource) Filter(_ context.Context, filter Predicate) (EntityList, error) {
