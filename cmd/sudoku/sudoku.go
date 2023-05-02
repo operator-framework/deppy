@@ -3,20 +3,15 @@ package sudoku
 import (
 	"context"
 	"fmt"
-	"math/rand"
-	"strconv"
-
 	"github.com/operator-framework/deppy/pkg/deppy"
 	"github.com/operator-framework/deppy/pkg/deppy/constraint"
 	"github.com/operator-framework/deppy/pkg/deppy/input"
+	"math/rand"
 )
 
-var _ input.EntitySource = &Sudoku{}
 var _ input.VariableSource = &Sudoku{}
 
-type Sudoku struct {
-	*input.CacheEntitySource
-}
+type Sudoku struct{}
 
 func GetID(row int, col int, num int) deppy.Identifier {
 	n := num
@@ -26,25 +21,10 @@ func GetID(row int, col int, num int) deppy.Identifier {
 }
 
 func NewSudoku() *Sudoku {
-	var entities = make(map[deppy.Identifier]input.Entity, 9*9*9)
-	for row := 0; row < 9; row++ {
-		for col := 0; col < 9; col++ {
-			for num := 0; num < 9; num++ {
-				id := GetID(row, col, num)
-				entities[id] = *input.NewEntity(id, map[string]string{
-					"row": strconv.Itoa(row),
-					"col": strconv.Itoa(col),
-					"num": strconv.Itoa(num),
-				})
-			}
-		}
-	}
-	return &Sudoku{
-		CacheEntitySource: input.NewCacheQuerier(entities),
-	}
+	return &Sudoku{}
 }
 
-func (s Sudoku) GetVariables(_ context.Context, _ input.EntitySource) ([]deppy.Variable, error) {
+func (s Sudoku) GetVariables(ctx context.Context) ([]deppy.Variable, error) {
 	// adapted from: https://github.com/go-air/gini/blob/871d828a26852598db2b88f436549634ba9533ff/sudoku_test.go#L10
 	variables := make(map[deppy.Identifier]*input.SimpleVariable, 0)
 	inorder := make([]deppy.Variable, 0)
