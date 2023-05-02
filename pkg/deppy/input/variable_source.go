@@ -8,7 +8,7 @@ import (
 
 // VariableSource generates solver constraints given an entity querier interface
 type VariableSource interface {
-	GetVariables(ctx context.Context, entitySource EntitySource) ([]deppy.Variable, error)
+	GetVariables(ctx context.Context) ([]deppy.Variable, error)
 }
 
 var _ deppy.Variable = &SimpleVariable{}

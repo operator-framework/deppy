@@ -53,7 +53,7 @@ func solve(path string) error {
 	}
 
 	// build solver
-	so, err := solver.NewDeppySolver(NewDimacsEntitySource(dimacs), NewDimacsVariableSource(dimacs))
+	so, err := solver.NewDeppySolver(NewDimacsVariableSource(dimacs))
 	if err != nil {
 		return err
 	}

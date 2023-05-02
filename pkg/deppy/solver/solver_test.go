@@ -23,25 +23,12 @@ func TestSolver(t *testing.T) {
 	RunSpecs(t, "Solver Suite")
 }
 
-type EntitySourceStruct struct {
+type VariableSourceStruct struct {
 	variables []deppy.Variable
-	input.EntitySource
 }
 
-func (c EntitySourceStruct) GetVariables(_ context.Context, _ input.EntitySource) ([]deppy.Variable, error) {
+func (c VariableSourceStruct) GetVariables(_ context.Context) ([]deppy.Variable, error) {
 	return c.variables, nil
-}
-
-func NewEntitySource(variables []deppy.Variable) *EntitySourceStruct {
-	entities := make(map[deppy.Identifier]input.Entity, len(variables))
-	for _, variable := range variables {
-		entityID := variable.Identifier()
-		entities[entityID] = *input.NewEntity(entityID, map[string]string{"x": "y"})
-	}
-	return &EntitySourceStruct{
-		variables:    variables,
-		EntitySource: input.NewCacheQuerier(entities),
-	}
 }
 
 var _ = Describe("Entity", func() {
@@ -50,8 +37,9 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("1", constraint.Mandatory()),
 			input.NewSimpleVariable("2"),
 		}
-		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(s, s)
+
+		varSrcStruct := &VariableSourceStruct{variables: variables}
+		so, err := solver.NewDeppySolver(varSrcStruct)
 		Expect(err).ToNot(HaveOccurred())
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
@@ -66,8 +54,9 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("1", constraint.Mandatory()),
 			input.NewSimpleVariable("2", constraint.Mandatory()),
 		}
-		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(s, s)
+
+		varSrcStruct := &VariableSourceStruct{variables: variables}
+		so, err := solver.NewDeppySolver(varSrcStruct)
 		Expect(err).ToNot(HaveOccurred())
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
@@ -83,9 +72,8 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("2"),
 			input.NewSimpleVariable("3"),
 		}
-		s := NewEntitySource(variables)
-
-		so, err := solver.NewDeppySolver(s, s)
+		varSrcStruct := &VariableSourceStruct{variables: variables}
+		so, err := solver.NewDeppySolver(varSrcStruct)
 		Expect(err).ToNot(HaveOccurred())
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
@@ -101,8 +89,9 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("2", constraint.Prohibited()),
 			input.NewSimpleVariable("3"),
 		}
-		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(s, s)
+
+		varSrcStruct := &VariableSourceStruct{variables: variables}
+		so, err := solver.NewDeppySolver(varSrcStruct)
 		Expect(err).ToNot(HaveOccurred())
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
@@ -110,8 +99,7 @@ var _ = Describe("Entity", func() {
 	})
 
 	It("should return peripheral errors", func() {
-		s := NewEntitySource(nil)
-		so, err := solver.NewDeppySolver(s, FailingVariableSource{})
+		so, err := solver.NewDeppySolver(FailingVariableSource{})
 		Expect(err).ToNot(HaveOccurred())
 		solution, err := so.Solve(context.Background())
 		Expect(err).To(HaveOccurred())
@@ -124,8 +112,9 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("2"),
 			input.NewSimpleVariable("3", constraint.Prohibited()),
 		}
-		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(s, s)
+
+		varSrcStruct := &VariableSourceStruct{variables: variables}
+		so, err := solver.NewDeppySolver(varSrcStruct)
 		Expect(err).ToNot(HaveOccurred())
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
@@ -141,8 +130,9 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("2"),
 			input.NewSimpleVariable("3", constraint.Prohibited()),
 		}
-		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(s, s)
+
+		varSrcStruct := &VariableSourceStruct{variables: variables}
+		so, err := solver.NewDeppySolver(varSrcStruct)
 		Expect(err).ToNot(HaveOccurred())
 		solution, err := so.Solve(context.Background(), solver.AddAllVariablesToSolution())
 		Expect(err).ToNot(HaveOccurred())
@@ -160,8 +150,9 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("3", constraint.Prohibited()),
 			input.NewSimpleVariable("4"),
 		}
-		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(s, s)
+
+		varSrcStruct := &VariableSourceStruct{variables: variables}
+		so, err := solver.NewDeppySolver(varSrcStruct)
 		Expect(err).ToNot(HaveOccurred())
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
@@ -178,8 +169,8 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("3", constraint.AtMost(1, "3", "4")),
 			input.NewSimpleVariable("4"),
 		}
-		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(s, s)
+		varSrcStruct := &VariableSourceStruct{variables: variables}
+		so, err := solver.NewDeppySolver(varSrcStruct)
 		Expect(err).ToNot(HaveOccurred())
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
@@ -198,8 +189,8 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("5"),
 			input.NewSimpleVariable("6"),
 		}
-		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(s, s)
+		varSrcStruct := &VariableSourceStruct{variables: variables}
+		so, err := solver.NewDeppySolver(varSrcStruct)
 		Expect(err).ToNot(HaveOccurred())
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
@@ -217,6 +208,6 @@ var _ input.VariableSource = &FailingVariableSource{}
 type FailingVariableSource struct {
 }
 
-func (f FailingVariableSource) GetVariables(ctx context.Context, entitySource input.EntitySource) ([]deppy.Variable, error) {
+func (f FailingVariableSource) GetVariables(ctx context.Context) ([]deppy.Variable, error) {
 	return nil, fmt.Errorf("error")
 }
