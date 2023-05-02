@@ -23,8 +23,11 @@ func NewSudokuCommand() *cobra.Command {
 
 func solve() error {
 	// build solver
-	sudoku := NewSudoku()
-	so := solver.NewDeppySolver(sudoku, sudoku)
+	sudoku := &Sudoku{}
+	so, err := solver.NewDeppySolver(sudoku)
+	if err != nil {
+		return err
+	}
 
 	// get solution
 	solution, err := so.Solve(context.Background())
