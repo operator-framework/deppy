@@ -51,8 +51,7 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("2"),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(s, s)
-		Expect(err).ToNot(HaveOccurred())
+		so := solver.NewDeppySolver(s, s)
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
@@ -67,8 +66,7 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("2", constraint.Mandatory()),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(s, s)
-		Expect(err).ToNot(HaveOccurred())
+		so := solver.NewDeppySolver(s, s)
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
@@ -85,8 +83,7 @@ var _ = Describe("Entity", func() {
 		}
 		s := NewEntitySource(variables)
 
-		so, err := solver.NewDeppySolver(s, s)
-		Expect(err).ToNot(HaveOccurred())
+		so := solver.NewDeppySolver(s, s)
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
@@ -102,8 +99,7 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("3"),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(s, s)
-		Expect(err).ToNot(HaveOccurred())
+		so := solver.NewDeppySolver(s, s)
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution.Error()).To(HaveOccurred())
@@ -111,8 +107,7 @@ var _ = Describe("Entity", func() {
 
 	It("should return peripheral errors", func() {
 		s := NewEntitySource(nil)
-		so, err := solver.NewDeppySolver(s, FailingVariableSource{})
-		Expect(err).ToNot(HaveOccurred())
+		so := solver.NewDeppySolver(s, FailingVariableSource{})
 		solution, err := so.Solve(context.Background())
 		Expect(err).To(HaveOccurred())
 		Expect(solution).To(BeNil())
@@ -125,8 +120,7 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("3", constraint.Prohibited()),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(s, s)
-		Expect(err).ToNot(HaveOccurred())
+		so := solver.NewDeppySolver(s, s)
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
@@ -142,8 +136,7 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("3", constraint.Prohibited()),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(s, s)
-		Expect(err).ToNot(HaveOccurred())
+		so := solver.NewDeppySolver(s, s)
 		solution, err := so.Solve(context.Background(), solver.AddAllVariablesToSolution())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution.AllVariables()).To(Equal([]deppy.Variable{
@@ -161,8 +154,7 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("4"),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(s, s)
-		Expect(err).ToNot(HaveOccurred())
+		so := solver.NewDeppySolver(s, s)
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
@@ -179,8 +171,7 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("4"),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(s, s)
-		Expect(err).ToNot(HaveOccurred())
+		so := solver.NewDeppySolver(s, s)
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
@@ -199,8 +190,7 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("6"),
 		}
 		s := NewEntitySource(variables)
-		so, err := solver.NewDeppySolver(s, s)
-		Expect(err).ToNot(HaveOccurred())
+		so := solver.NewDeppySolver(s, s)
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
