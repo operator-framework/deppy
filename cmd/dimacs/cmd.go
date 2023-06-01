@@ -18,7 +18,7 @@ func NewDimacsCommand() *cobra.Command {
 		Long: `Solves a sat problem given in dimacs format. For instance:
 c
 c this is a comment
-c header: p cnf <number of variable> <number of clauses> 
+c header: p cnf <number of variable> <number of clauses>
 p cnf 2 2
 c clauses end in zero, negative means 'not'
 c 0 (zero) is not a valid literal
@@ -53,10 +53,7 @@ func solve(path string) error {
 	}
 
 	// build solver
-	so, err := solver.NewDeppySolver(NewDimacsEntitySource(dimacs), NewDimacsVariableSource(dimacs))
-	if err != nil {
-		return err
-	}
+	so := solver.NewDeppySolver(NewDimacsEntitySource(dimacs), NewDimacsVariableSource(dimacs))
 
 	// get solution
 	solution, err := so.Solve(context.Background(), solver.AddAllVariablesToSolution())

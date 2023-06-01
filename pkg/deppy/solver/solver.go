@@ -81,11 +81,11 @@ type DeppySolver struct {
 	variableSource input.VariableSource
 }
 
-func NewDeppySolver(entitySource input.EntitySource, variableSource input.VariableSource) (*DeppySolver, error) {
+func NewDeppySolver(entitySource input.EntitySource, variableSource input.VariableSource) *DeppySolver {
 	return &DeppySolver{
 		entitySource:   entitySource,
 		variableSource: variableSource,
-	}, nil
+	}
 }
 
 func (d DeppySolver) Solve(ctx context.Context, options ...Option) (*Solution, error) {
