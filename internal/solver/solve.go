@@ -19,10 +19,11 @@ type Solver interface {
 }
 
 type solver struct {
-	g      inter.S
-	litMap *litMapping
-	tracer deppy.Tracer
-	buffer []z.Lit
+	g                     inter.S
+	litMap                *litMapping
+	tracer                deppy.Tracer
+	buffer                []z.Lit
+	enablePreferenceOrder bool
 }
 
 const (
@@ -59,9 +60,18 @@ func (s *solver) Solve(ctx context.Context) (result []deppy.Variable, err error)
 	s.litMap.AssumeConstraints(s.g)
 	s.g.Assume(assumptions...)
 
+	if !s.enablePreferenceOrder {
+		if s.g.Solve() == satisfiable {
+			return s.litMap.Variables(s.g), nil
+		} else {
+			return nil, deppy.NotSatisfiable(s.litMap.Conflicts(s.g))
+		}
+	}
+
 	var aset map[z.Lit]struct{}
 	// push a new test scope with the baseline assumptions, to prevent them from being cleared during search
 	outcome, _ := s.g.Test(nil)
+
 	if outcome != satisfiable && outcome != unsatisfiable {
 		// searcher for solutions in input Order, so that preferences
 		// can be taken into acount (i.e. prefer one catalog to another)
@@ -115,6 +125,14 @@ func NewSolver(options ...Option) (Solver, error) {
 
 type Option func(s *solver) error
 
+// todo: add tests for this
+func WithoutPreferenceOrdering() Option {
+	return func(s *solver) error {
+		s.enablePreferenceOrder = false
+		return nil
+	}
+}
+
 func WithInput(input []deppy.Variable) Option {
 	return func(s *solver) error {
 		var err error
@@ -143,6 +161,10 @@ var defaults = []Option{
 		if s.tracer == nil {
 			s.tracer = DefaultTracer{}
 		}
+		return nil
+	},
+	func(s *solver) error {
+		s.enablePreferenceOrder = true
 		return nil
 	},
 }
