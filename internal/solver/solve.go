@@ -19,11 +19,11 @@ type Solver interface {
 }
 
 type solver struct {
-	g                     inter.S
-	litMap                *litMapping
-	tracer                deppy.Tracer
-	buffer                []z.Lit
-	enablePreferenceOrder bool
+	g                      inter.S
+	litMap                 *litMapping
+	tracer                 deppy.Tracer
+	buffer                 []z.Lit
+	disableOrderPreference bool
 }
 
 const (
@@ -60,7 +60,7 @@ func (s *solver) Solve(ctx context.Context) (result []deppy.Variable, err error)
 	s.litMap.AssumeConstraints(s.g)
 	s.g.Assume(assumptions...)
 
-	if !s.enablePreferenceOrder {
+	if s.disableOrderPreference {
 		if s.g.Solve() == satisfiable {
 			return s.litMap.Variables(s.g), nil
 		} else {
@@ -115,7 +115,7 @@ func (s *solver) Solve(ctx context.Context) (result []deppy.Variable, err error)
 
 func NewSolver(options ...Option) (Solver, error) {
 	s := solver{g: gini.New()}
-	for _, option := range append(options, defaults...) {
+	for _, option := range append(defaults, options...) {
 		if err := option(&s); err != nil {
 			return nil, err
 		}
@@ -126,9 +126,9 @@ func NewSolver(options ...Option) (Solver, error) {
 type Option func(s *solver) error
 
 // todo: add tests for this
-func WithoutPreferenceOrdering() Option {
+func DisableOrderPreference() Option {
 	return func(s *solver) error {
-		s.enablePreferenceOrder = false
+		s.disableOrderPreference = true
 		return nil
 	}
 }
@@ -164,7 +164,7 @@ var defaults = []Option{
 		return nil
 	},
 	func(s *solver) error {
-		s.enablePreferenceOrder = true
+		s.disableOrderPreference = false
 		return nil
 	},
 }

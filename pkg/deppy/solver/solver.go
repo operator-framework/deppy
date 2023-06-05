@@ -49,6 +49,7 @@ func (s *Solution) AllVariables() []deppy.Variable {
 
 type solutionOptions struct {
 	addVariablesToSolution bool
+	disableOrderPreference bool
 }
 
 func (s *solutionOptions) apply(options ...Option) *solutionOptions {
@@ -61,6 +62,7 @@ func (s *solutionOptions) apply(options ...Option) *solutionOptions {
 func defaultSolutionOptions() *solutionOptions {
 	return &solutionOptions{
 		addVariablesToSolution: false,
+		disableOrderPreference: false,
 	}
 }
 
@@ -71,6 +73,12 @@ type Option func(solutionOptions *solutionOptions)
 func AddAllVariablesToSolution() Option {
 	return func(solutionOptions *solutionOptions) {
 		solutionOptions.addVariablesToSolution = true
+	}
+}
+
+func DisableOrderPreference() Option {
+	return func(solutionOptions *solutionOptions) {
+		solutionOptions.disableOrderPreference = true
 	}
 }
 
@@ -96,7 +104,14 @@ func (d DeppySolver) Solve(ctx context.Context, options ...Option) (*Solution, e
 		return nil, err
 	}
 
-	satSolver, err := solver.NewSolver(solver.WithInput(vars))
+	opts := []solver.Option{
+		solver.WithInput(vars),
+	}
+	if solutionOpts.disableOrderPreference {
+		opts = append(opts, solver.DisableOrderPreference())
+	}
+
+	satSolver, err := solver.NewSolver(opts...)
 	if err != nil {
 		return nil, err
 	}
