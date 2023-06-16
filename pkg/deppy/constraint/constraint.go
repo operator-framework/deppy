@@ -176,7 +176,7 @@ func (constraint *AtMostConstraint) Ids() []deppy.Identifier {
 	return constraint.ids
 }
 
-func (constraint *AtMostConstraint) Apply(lm deppy.LitMapping, subject deppy.Identifier) z.Lit {
+func (constraint *AtMostConstraint) Apply(lm deppy.LitMapping, _ deppy.Identifier) z.Lit {
 	ms := make([]z.Lit, len(constraint.ids))
 	for i, each := range constraint.ids {
 		ms[i] = lm.LitOf(each)

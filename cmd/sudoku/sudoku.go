@@ -45,7 +45,7 @@ func NewSudoku() *Sudoku {
 	}
 }
 
-func (s Sudoku) GetVariables(ctx context.Context, _ input.EntitySource) ([]deppy.Variable, error) {
+func (s Sudoku) GetVariables(_ context.Context, _ input.EntitySource) ([]deppy.Variable, error) {
 	// adapted from: https://github.com/go-air/gini/blob/871d828a26852598db2b88f436549634ba9533ff/sudoku_test.go#L10
 	variables := make(map[deppy.Identifier]*input.SimpleVariable, 0)
 	inorder := make([]deppy.Variable, 0)
