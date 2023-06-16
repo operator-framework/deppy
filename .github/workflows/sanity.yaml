@@ -37,4 +37,4 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Run golangci linting checks
-        run: make lint
+        run: make lint GOLANGCI_LINT_ARGS="--out-format github-actions"
