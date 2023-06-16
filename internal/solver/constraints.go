@@ -11,11 +11,11 @@ type zeroConstraint struct{}
 
 var _ deppy.Constraint = zeroConstraint{}
 
-func (zeroConstraint) String(subject deppy.Identifier) string {
+func (zeroConstraint) String(_ deppy.Identifier) string {
 	return ""
 }
 
-func (zeroConstraint) Apply(lm deppy.LitMapping, subject deppy.Identifier) z.Lit {
+func (zeroConstraint) Apply(_ deppy.LitMapping, _ deppy.Identifier) z.Lit {
 	return z.LitNull
 }
 

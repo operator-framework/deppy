@@ -35,7 +35,7 @@ const (
 // containing only those Variables that were selected for
 // installation. If no solution is possible, or if the provided
 // Context times out or is cancelled, an error is returned.
-func (s *solver) Solve(ctx context.Context) (result []deppy.Variable, err error) {
+func (s *solver) Solve(_ context.Context) (result []deppy.Variable, err error) {
 	defer func() {
 		// This likely indicates a bug, so discard whatever
 		// return values were produced.
