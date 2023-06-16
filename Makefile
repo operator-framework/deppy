@@ -16,6 +16,14 @@ SHELL = /usr/bin/env bash -o pipefail
 .PHONY: all
 all: build
 
+# setup-envtest on *nix uses XDG_DATA_HOME, falling back to HOME, as the default storage directory. Some CI setups
+# don't have XDG_DATA_HOME set; in those cases, we set it here so setup-envtest functions correctly. This shouldn't
+# affect developers.
+export XDG_DATA_HOME ?= /tmp/.local/share
+
+# bingo manages consistent tooling versions for things like kind, kustomize, etc.
+include .bingo/Variables.mk
+
 ##@ General
 
 # The help target prints out all targets with their descriptions organized
@@ -47,7 +55,7 @@ tidy: ## Update modules.
 	go mod tidy
 
 .PHONY: lint
-lint: golangci-lint ## Run golangci-lint linter checks.
+lint: $(GOLANGCI_LINT) ## Run golangci-lint linter checks.
 	$(GOLANGCI_LINT) run $(GOLANGCI_LINT_ARGS)
 
 .PHONY: verify
@@ -59,7 +67,7 @@ UNIT_TEST_DIRS=$(shell go list ./... | grep -v /test/)
 unit: ## Run tests.
 	go test -count=1 -short $(UNIT_TEST_DIRS)
 
-e2e: ginkgo
+e2e: $(GINKGO)
 	$(GINKGO) -trace -progress test/e2e
 
 ##@ Build
@@ -72,21 +80,3 @@ build: ## Build deppy cli
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
-
-## Tool Binaries
-GINKGO ?= $(LOCALBIN)/ginkgo
-GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
-
-## Tool Versions
-GINKGO_VERSION ?= v2.1.4
-GOLANGCI_LINT_VERSION ?= v1.49.0
-
-.PHONY: ginkgo
-ginkgo: $(GINKGO)
-$(GINKGO): $(LOCALBIN) ## Download ginkgo locally if necessary.
-	GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo@$(GINKGO_VERSION)
-
-.PHONY: golangci-lint
-golangci-lint: $(GOLANGCI_LINT)
-$(GOLANGCI_LINT): $(LOCALBIN) ## Download golangci-lint locally if necessary.
-	GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
