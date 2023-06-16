@@ -48,7 +48,7 @@ tidy: ## Update modules.
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter checks.
-	$(GOLANGCI_LINT) run
+	$(GOLANGCI_LINT) run $(GOLANGCI_LINT_ARGS)
 
 .PHONY: verify
 verify: tidy ## Run verification checks.
