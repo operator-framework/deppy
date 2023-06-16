@@ -29,7 +29,8 @@ func (c CacheEntitySource) Get(_ context.Context, id deppy.Identifier) (*Entity,
 
 func (c CacheEntitySource) Filter(_ context.Context, filter Predicate) (EntityList, error) {
 	resultSet := EntityList{}
-	for _, entity := range c.entities {
+	for i := range c.entities {
+		entity := c.entities[i]
 		if filter(&entity) {
 			resultSet = append(resultSet, entity)
 		}
@@ -39,7 +40,8 @@ func (c CacheEntitySource) Filter(_ context.Context, filter Predicate) (EntityLi
 
 func (c CacheEntitySource) GroupBy(_ context.Context, fn GroupByFunction) (EntityListMap, error) {
 	resultSet := EntityListMap{}
-	for _, entity := range c.entities {
+	for i := range c.entities {
+		entity := c.entities[i]
 		keys := fn(&entity)
 		for _, key := range keys {
 			resultSet[key] = append(resultSet[key], entity)
@@ -49,7 +51,8 @@ func (c CacheEntitySource) GroupBy(_ context.Context, fn GroupByFunction) (Entit
 }
 
 func (c CacheEntitySource) Iterate(_ context.Context, fn IteratorFunction) error {
-	for _, entity := range c.entities {
+	for i := range c.entities {
+		entity := c.entities[i]
 		if err := fn(&entity); err != nil {
 			return err
 		}
