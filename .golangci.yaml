@@ -10,9 +10,11 @@ linters:
   - ginkgolinter
   - gofmt
   - goimports
+  - gosec
   - importas
   - misspell
   - nestif
+  - nonamedreturns
   - prealloc
   - revive
   - stylecheck
@@ -28,8 +30,29 @@ linters-settings:
 
   importas:
     alias:
+    - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+      alias: metav1
+    - pkg: k8s.io/apimachinery/pkg/api/errors
+      alias: apierrors
+    - pkg: k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
+      alias: apiextensionsv1
+    - pkg: k8s.io/apimachinery/pkg/util/runtime
+      alias: utilruntime
+    - pkg: "^k8s\\.io/api/([^/]+)/(v[^/]+)$"
+      alias: $1$2
+    - pkg: sigs.k8s.io/controller-runtime
+      alias: ctrl
+    - pkg: github.com/operator-framework/rukpak/api/v1alpha1
+      alias: rukpakv1alpha1
   goimports:
     local-prefixes: github.com/operator-framework/deppy
+
+issues:
+  exclude-rules:
+  - path: "internal/solver/bench_test.go"
+    text: "G404: Use of weak random number generator"
+    linters:
+      - gosec
 
 output:
   format: tab

@@ -20,16 +20,16 @@ type TestScopeCounter struct {
 	inter.S
 }
 
-func (c *TestScopeCounter) Test(dst []z.Lit) (result int, out []z.Lit) {
-	result, out = c.S.Test(dst)
+func (c *TestScopeCounter) Test(dst []z.Lit) (int, []z.Lit) {
+	result, out := c.S.Test(dst)
 	*c.depth++
-	return
+	return result, out
 }
 
-func (c *TestScopeCounter) Untest() (result int) {
-	result = c.S.Untest()
+func (c *TestScopeCounter) Untest() int {
+	result := c.S.Untest()
 	*c.depth--
-	return
+	return result
 }
 
 func TestSearch(t *testing.T) {

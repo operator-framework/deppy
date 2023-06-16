@@ -35,16 +35,19 @@ const (
 // containing only those Variables that were selected for
 // installation. If no solution is possible, or if the provided
 // Context times out or is cancelled, an error is returned.
-func (s *solver) Solve(_ context.Context) (result []deppy.Variable, err error) {
-	defer func() {
-		// This likely indicates a bug, so discard whatever
-		// return values were produced.
-		if derr := s.litMap.Error(); derr != nil {
-			result = nil
-			err = derr
-		}
-	}()
+func (s *solver) Solve(_ context.Context) ([]deppy.Variable, error) {
+	result, err := s.solve()
 
+	// This likely indicates a bug, so discard whatever
+	// return values were produced.
+	if derr := s.litMap.Error(); derr != nil {
+		return nil, derr
+	}
+
+	return result, err
+}
+
+func (s *solver) solve() ([]deppy.Variable, error) {
 	// teach all constraints to the solver
 	s.litMap.AddConstraints(s.g)
 
