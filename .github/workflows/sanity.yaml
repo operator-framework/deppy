@@ -11,8 +11,9 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-go@v4
         with:
           go-version-file: "go.mod"
       - name: Run verification checks
@@ -20,21 +21,11 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-go@v4
         with:
           go-version-file: "go.mod"
-
-      - name: Cache build and module paths
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
 
       - name: Run golangci linting checks
         run: make lint
