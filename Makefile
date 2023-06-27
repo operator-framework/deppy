@@ -65,7 +65,7 @@ verify: tidy ## Run verification checks.
 UNIT_TEST_DIRS=$(shell go list ./... | grep -v /test/)
 .PHONY: test
 unit: ## Run tests.
-	go test -count=1 -short $(UNIT_TEST_DIRS)
+	go test -count=1 -short $(UNIT_TEST_DIRS) -coverprofile cover.out
 
 e2e: $(GINKGO)
 	$(GINKGO) -trace -progress test/e2e
