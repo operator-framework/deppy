@@ -21,33 +21,35 @@ var BenchmarkInput = func() []deppy.Variable {
 		nConflict   = 3
 	)
 
+	random := rand.New(rand.NewSource(seed))
+
 	id := func(i int) deppy.Identifier {
 		return deppy.Identifier(strconv.Itoa(i))
 	}
 
 	variable := func(i int) TestVariable {
 		var c []deppy.Constraint
-		if rand.Float64() < pMandatory {
+		if random.Float64() < pMandatory {
 			c = append(c, constraint.Mandatory())
 		}
-		if rand.Float64() < pDependency {
-			n := rand.Intn(nDependency-1) + 1
+		if random.Float64() < pDependency {
+			n := random.Intn(nDependency-1) + 1
 			var d []deppy.Identifier
 			for x := 0; x < n; x++ {
 				y := i
 				for y == i {
-					y = rand.Intn(length)
+					y = random.Intn(length)
 				}
 				d = append(d, id(y))
 			}
 			c = append(c, constraint.Dependency(d...))
 		}
-		if rand.Float64() < pConflict {
-			n := rand.Intn(nConflict-1) + 1
+		if random.Float64() < pConflict {
+			n := random.Intn(nConflict-1) + 1
 			for x := 0; x < n; x++ {
 				y := i
 				for y == i {
-					y = rand.Intn(length)
+					y = random.Intn(length)
 				}
 				c = append(c, constraint.Conflict(id(y)))
 			}

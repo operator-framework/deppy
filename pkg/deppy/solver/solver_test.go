@@ -206,6 +206,6 @@ var _ input.VariableSource = &FailingVariableSource{}
 type FailingVariableSource struct {
 }
 
-func (f FailingVariableSource) GetVariables(ctx context.Context) ([]deppy.Variable, error) {
+func (f FailingVariableSource) GetVariables(_ context.Context) ([]deppy.Variable, error) {
 	return nil, fmt.Errorf("error")
 }

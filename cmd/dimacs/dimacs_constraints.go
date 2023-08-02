@@ -21,7 +21,7 @@ func NewDimacsVariableSource(dimacs *Dimacs) *ConstraintGenerator {
 	}
 }
 
-func (d *ConstraintGenerator) GetVariables(ctx context.Context) ([]deppy.Variable, error) {
+func (d *ConstraintGenerator) GetVariables(_ context.Context) ([]deppy.Variable, error) {
 	varMap := make(map[deppy.Identifier]*input.SimpleVariable, len(d.dimacs.variables))
 	variables := make([]deppy.Variable, 0, len(d.dimacs.variables))
 
