@@ -5,6 +5,13 @@ Deppy is an Apache 2.0 licensed project and accepts contributions via GitHub pul
 This document outlines some conventions on commit message formatting, contact points for developers, and other resources
 to help deppy contributors.
 
+## Certificate of Origin
+
+By contributing to this project you agree to the Developer Certificate of
+Origin (DCO). This document was created by the Linux Kernel community and is a
+simple statement that you, as a contributor, have the legal right to make the
+contribution. See the [DCO](DCO) file for details.
+
 ## Communication
 
 - Email: [operator-framework-olm-dev](mailto:operator-framework-olm-dev@googlegroups.com)
