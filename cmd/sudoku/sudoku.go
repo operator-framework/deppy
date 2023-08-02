@@ -3,10 +3,11 @@ package sudoku
 import (
 	"context"
 	"fmt"
+	"math/rand"
+
 	"github.com/operator-framework/deppy/pkg/deppy"
 	"github.com/operator-framework/deppy/pkg/deppy/constraint"
 	"github.com/operator-framework/deppy/pkg/deppy/input"
-	"math/rand"
 )
 
 var _ input.VariableSource = &Sudoku{}
@@ -24,7 +25,7 @@ func NewSudoku() *Sudoku {
 	return &Sudoku{}
 }
 
-func (s Sudoku) GetVariables(ctx context.Context) ([]deppy.Variable, error) {
+func (s Sudoku) GetVariables(_ context.Context) ([]deppy.Variable, error) {
 	// adapted from: https://github.com/go-air/gini/blob/871d828a26852598db2b88f436549634ba9533ff/sudoku_test.go#L10
 	variables := make(map[deppy.Identifier]*input.SimpleVariable, 0)
 	inorder := make([]deppy.Variable, 0)
