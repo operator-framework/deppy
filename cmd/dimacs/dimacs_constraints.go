@@ -28,6 +28,7 @@ func (d *ConstraintGenerator) GetVariables(_ context.Context) ([]deppy.Variable,
 	for _, id := range d.dimacs.variables {
 		variable := input.NewSimpleVariable(deppy.IdentifierFromString(id))
 		variables = append(variables, variable)
+		varMap[variable.Identifier()] = variable
 	}
 
 	// create constraints out of the clauses
