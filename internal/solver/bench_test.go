@@ -58,7 +58,6 @@ var BenchmarkInput = func() []deppy.Variable {
 		}
 	}
 
-	rand.Seed(seed)
 	result := make([]deppy.Variable, length)
 	for i := range result {
 		result[i] = variable(i)
