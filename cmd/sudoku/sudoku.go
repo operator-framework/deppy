@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
-	"time"
 
 	"github.com/operator-framework/deppy/pkg/deppy"
 	"github.com/operator-framework/deppy/pkg/deppy/constraint"
@@ -49,7 +48,6 @@ func (s Sudoku) GetVariables(_ context.Context, _ input.EntitySource) ([]deppy.V
 	// adapted from: https://github.com/go-air/gini/blob/871d828a26852598db2b88f436549634ba9533ff/sudoku_test.go#L10
 	variables := make(map[deppy.Identifier]*input.SimpleVariable, 0)
 	inorder := make([]deppy.Variable, 0)
-	rand.Seed(time.Now().UnixNano())
 
 	// create variables for all number in all positions of the board
 	for row := 0; row < 9; row++ {
