@@ -69,6 +69,7 @@ var _ = Describe("Entity", func() {
 		so := solver.NewDeppySolver(s, s)
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
+		Expect(solution.Error()).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
 			deppy.Identifier("1"): Equal(input.NewSimpleVariable("1", constraint.Mandatory())),
 			deppy.Identifier("2"): Equal(input.NewSimpleVariable("2", constraint.Mandatory())),
@@ -86,10 +87,28 @@ var _ = Describe("Entity", func() {
 		so := solver.NewDeppySolver(s, s)
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
+		Expect(solution.Error()).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
 			deppy.Identifier("1"): Equal(input.NewSimpleVariable("1", constraint.Mandatory(), constraint.Dependency("2"))),
 			deppy.Identifier("2"): Equal(input.NewSimpleVariable("2")),
 		}))
+	})
+
+	It("should return untyped nil error from solution.Error() when there is a solution", func() {
+		variables := []deppy.Variable{
+			input.NewSimpleVariable("1", constraint.Mandatory()),
+		}
+		s := NewEntitySource(variables)
+		so := solver.NewDeppySolver(s, s)
+		solution, err := so.Solve(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(solution).ToNot(BeNil())
+
+		// Using this style for the assertion to ensure that gomega
+		// doesn't equate nil errors of different types.
+		if err := solution.Error(); err != nil {
+			Fail(fmt.Sprintf("expected solution.Error() to be untyped nil, got %#v", solution.Error()))
+		}
 	})
 
 	It("should place resolution errors in the solution", func() {
@@ -123,6 +142,7 @@ var _ = Describe("Entity", func() {
 		so := solver.NewDeppySolver(s, s)
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
+		Expect(solution.Error()).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
 			deppy.Identifier("1"): Equal(input.NewSimpleVariable("1", constraint.Mandatory(), constraint.Dependency("2"))),
 			deppy.Identifier("2"): Equal(input.NewSimpleVariable("2")),
@@ -139,6 +159,7 @@ var _ = Describe("Entity", func() {
 		so := solver.NewDeppySolver(s, s)
 		solution, err := so.Solve(context.Background(), solver.AddAllVariablesToSolution())
 		Expect(err).ToNot(HaveOccurred())
+		Expect(solution.Error()).ToNot(HaveOccurred())
 		Expect(solution.AllVariables()).To(Equal([]deppy.Variable{
 			input.NewSimpleVariable("1", constraint.Mandatory(), constraint.Dependency("2")),
 			input.NewSimpleVariable("2"),
@@ -157,6 +178,7 @@ var _ = Describe("Entity", func() {
 		so := solver.NewDeppySolver(s, s)
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
+		Expect(solution.Error()).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
 			deppy.Identifier("2"): Equal(input.NewSimpleVariable("2", constraint.Dependency("4"))),
 			deppy.Identifier("4"): Equal(input.NewSimpleVariable("4")),
@@ -174,6 +196,7 @@ var _ = Describe("Entity", func() {
 		so := solver.NewDeppySolver(s, s)
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
+		Expect(solution.Error()).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
 			deppy.Identifier("2"): Equal(input.NewSimpleVariable("2", constraint.Dependency("3"))),
 			deppy.Identifier("3"): Equal(input.NewSimpleVariable("3", constraint.AtMost(1, "3", "4"))),
@@ -193,6 +216,7 @@ var _ = Describe("Entity", func() {
 		so := solver.NewDeppySolver(s, s)
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
+		Expect(solution.Error()).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
 			deppy.Identifier("2"): Equal(input.NewSimpleVariable("2", constraint.Dependency("4"), constraint.Dependency("5"))),
 			deppy.Identifier("4"): Equal(input.NewSimpleVariable("4", constraint.Dependency("6"))),
