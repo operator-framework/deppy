@@ -16,7 +16,7 @@ import (
 // A successful execution of the solver can still end in an error when no solution can
 // be found.
 type Solution struct {
-	err       deppy.NotSatisfiable
+	err       error
 	selection map[deppy.Identifier]deppy.Variable
 	variables []deppy.Variable
 }
