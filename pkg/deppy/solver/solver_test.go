@@ -88,8 +88,7 @@ var _ = Describe("Entity", func() {
 		variables := []deppy.Variable{
 			input.NewSimpleVariable("1", constraint.Mandatory()),
 		}
-		s := NewEntitySource(variables)
-		so := solver.NewDeppySolver(s, s)
+		so := solver.NewDeppySolver(&VariableSourceStruct{variables: variables})
 		solution, err := so.Solve(context.Background())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution).ToNot(BeNil())
