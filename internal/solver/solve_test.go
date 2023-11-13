@@ -65,7 +65,7 @@ func TestNotSatisfiableError(t *testing.T) {
 					Constraint: constraint.Mandatory(),
 				},
 			},
-			String: fmt.Sprintf("constraints not satisfiable: %s",
+			String: fmt.Sprintf("constraints not satisfiable:\n%s",
 				constraint.Mandatory().String("a")),
 		},
 		{
@@ -80,7 +80,7 @@ func TestNotSatisfiableError(t *testing.T) {
 					Constraint: constraint.Prohibited(),
 				},
 			},
-			String: fmt.Sprintf("constraints not satisfiable: %s, %s",
+			String: fmt.Sprintf("constraints not satisfiable:\n%s\n%s",
 				constraint.Mandatory().String("a"), constraint.Prohibited().String("b")),
 		},
 	} {

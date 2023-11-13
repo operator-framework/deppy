@@ -21,7 +21,7 @@ func (e NotSatisfiable) Error() string {
 	for i, a := range e {
 		s[i] = a.String()
 	}
-	return fmt.Sprintf("%s: %s", msg, strings.Join(s, ", "))
+	return fmt.Sprintf("%s:\n%s", msg, strings.Join(s, "\n"))
 }
 
 // Identifier values uniquely identify particular Variables within
