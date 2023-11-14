@@ -3,10 +3,7 @@ package solver
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
-	"reflect"
-	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -117,11 +114,11 @@ func TestSolve(t *testing.T) {
 			Error: deppy.NotSatisfiable{
 				{
 					Variable:   variable("a", constraint.Mandatory(), constraint.Prohibited()),
-					Constraint: constraint.Mandatory(),
+					Constraint: constraint.Prohibited(),
 				},
 				{
 					Variable:   variable("a", constraint.Mandatory(), constraint.Prohibited()),
-					Constraint: constraint.Prohibited(),
+					Constraint: constraint.Mandatory(),
 				},
 			},
 		},
@@ -186,16 +183,16 @@ func TestSolve(t *testing.T) {
 			},
 			Error: deppy.NotSatisfiable{
 				{
-					Variable:   variable("a", constraint.Mandatory()),
-					Constraint: constraint.Mandatory(),
-				},
-				{
-					Variable:   variable("b", constraint.Mandatory(), constraint.Conflict("a")),
-					Constraint: constraint.Mandatory(),
-				},
-				{
 					Variable:   variable("b", constraint.Mandatory(), constraint.Conflict("a")),
 					Constraint: constraint.Conflict("a"),
+				},
+				{
+					Variable:   variable("b", constraint.Mandatory(), constraint.Conflict("a")),
+					Constraint: constraint.Mandatory(),
+				},
+				{
+					Variable:   variable("a", constraint.Mandatory()),
+					Constraint: constraint.Mandatory(),
 				},
 			},
 		},
@@ -218,16 +215,16 @@ func TestSolve(t *testing.T) {
 			},
 			Error: deppy.NotSatisfiable{
 				{
-					Variable:   variable("a", constraint.Mandatory(), constraint.Dependency("x", "y"), constraint.AtMost(1, "x", "y")),
-					Constraint: constraint.AtMost(1, "x", "y"),
+					Variable:   variable("y", constraint.Mandatory()),
+					Constraint: constraint.Mandatory(),
 				},
 				{
 					Variable:   variable("x", constraint.Mandatory()),
 					Constraint: constraint.Mandatory(),
 				},
 				{
-					Variable:   variable("y", constraint.Mandatory()),
-					Constraint: constraint.Mandatory(),
+					Variable:   variable("a", constraint.Mandatory(), constraint.Dependency("x", "y"), constraint.AtMost(1, "x", "y")),
+					Constraint: constraint.AtMost(1, "x", "y"),
 				},
 			},
 		},
@@ -300,41 +297,6 @@ func TestSolve(t *testing.T) {
 			}
 
 			installed, err := s.Solve(context.TODO())
-
-			if installed != nil {
-				sort.SliceStable(installed, func(i, j int) bool {
-					return installed[i].Identifier() < installed[j].Identifier()
-				})
-			}
-
-			// Failed constraints are sorted in lexically
-			// increasing Order of the identifier of the
-			// constraint's variable, with ties broken
-			// in favor of the constraint that appears
-			// earliest in the variable's list of
-			// constraints.
-			var ns deppy.NotSatisfiable
-			if errors.As(err, &ns) {
-				sort.SliceStable(ns, func(i, j int) bool {
-					if ns[i].Variable.Identifier() != ns[j].Variable.Identifier() {
-						return ns[i].Variable.Identifier() < ns[j].Variable.Identifier()
-					}
-					var x, y int
-					for ii, c := range ns[i].Variable.Constraints() {
-						if reflect.DeepEqual(c, ns[i].Constraint) {
-							x = ii
-							break
-						}
-					}
-					for ij, c := range ns[j].Variable.Constraints() {
-						if reflect.DeepEqual(c, ns[j].Constraint) {
-							y = ij
-							break
-						}
-					}
-					return x < y
-				})
-			}
 
 			var ids []deppy.Identifier
 			for _, variable := range installed {
