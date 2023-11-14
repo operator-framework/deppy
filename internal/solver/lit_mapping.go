@@ -27,12 +27,13 @@ func (inconsistentLitMapping) Error() string {
 // Solve (Constraints, Variables, etc.) and the variables that
 // appear in the SAT formula.
 type litMapping struct {
-	inorder     []deppy.Variable
-	variables   map[z.Lit]deppy.Variable
-	lits        map[deppy.Identifier]z.Lit
-	constraints map[z.Lit]deppy.AppliedConstraint
-	c           *logic.C
-	errs        inconsistentLitMapping
+	inorder            []deppy.Variable
+	variables          map[z.Lit]deppy.Variable
+	lits               map[deppy.Identifier]z.Lit
+	constraints        map[z.Lit]deppy.AppliedConstraint
+	constraintsInOrder []z.Lit
+	c                  *logic.C
+	errs               inconsistentLitMapping
 }
 
 // newLitMapping returns a new litMapping with its state initialized based on
@@ -72,6 +73,7 @@ func newLitMapping(variables []deppy.Variable) (*litMapping, error) {
 				Variable:   variable,
 				Constraint: constraint,
 			}
+			d.constraintsInOrder = append(d.constraintsInOrder, m)
 		}
 	}
 
@@ -142,7 +144,7 @@ func (d *litMapping) AddConstraints(g inter.S) {
 }
 
 func (d *litMapping) AssumeConstraints(s inter.S) {
-	for m := range d.constraints {
+	for _, m := range d.constraintsInOrder {
 		s.Assume(m)
 	}
 }
