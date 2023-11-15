@@ -1,15 +1,8 @@
 package input
 
 import (
-	"context"
-
 	"github.com/operator-framework/deppy/pkg/deppy"
 )
-
-// VariableSource generates solver constraints given an entity querier interface
-type VariableSource interface {
-	GetVariables(ctx context.Context) ([]deppy.Variable, error)
-}
 
 var _ deppy.Variable = &SimpleVariable{}
 
