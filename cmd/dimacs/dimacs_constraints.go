@@ -1,7 +1,6 @@
 package dimacs
 
 import (
-	"context"
 	"strings"
 
 	"github.com/operator-framework/deppy/pkg/deppy"
@@ -9,30 +8,18 @@ import (
 	"github.com/operator-framework/deppy/pkg/deppy/input"
 )
 
-var _ input.VariableSource = &ConstraintGenerator{}
+func GenerateVariables(dimacs *Dimacs) ([]deppy.Variable, error) {
+	varMap := make(map[deppy.Identifier]*input.SimpleVariable, len(dimacs.variables))
+	variables := make([]deppy.Variable, 0, len(dimacs.variables))
 
-type ConstraintGenerator struct {
-	dimacs *Dimacs
-}
-
-func NewDimacsVariableSource(dimacs *Dimacs) *ConstraintGenerator {
-	return &ConstraintGenerator{
-		dimacs: dimacs,
-	}
-}
-
-func (d *ConstraintGenerator) GetVariables(_ context.Context) ([]deppy.Variable, error) {
-	varMap := make(map[deppy.Identifier]*input.SimpleVariable, len(d.dimacs.variables))
-	variables := make([]deppy.Variable, 0, len(d.dimacs.variables))
-
-	for _, id := range d.dimacs.variables {
+	for _, id := range dimacs.variables {
 		variable := input.NewSimpleVariable(deppy.IdentifierFromString(id))
 		variables = append(variables, variable)
 		varMap[variable.Identifier()] = variable
 	}
 
 	// create constraints out of the clauses
-	for _, clause := range d.dimacs.clauses {
+	for _, clause := range dimacs.clauses {
 		terms := strings.Split(clause, " ")
 		if len(terms) == 0 {
 			continue

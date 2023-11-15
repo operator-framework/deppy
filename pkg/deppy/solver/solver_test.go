@@ -1,7 +1,6 @@
 package solver_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -23,28 +22,19 @@ func TestSolver(t *testing.T) {
 	RunSpecs(t, "Solver Suite")
 }
 
-type VariableSourceStruct struct {
-	variables []deppy.Variable
-}
-
-func (c VariableSourceStruct) GetVariables(_ context.Context) ([]deppy.Variable, error) {
-	return c.variables, nil
-}
-
 var _ = Describe("Entity", func() {
 	It("should select a mandatory entity", func() {
 		variables := []deppy.Variable{
 			input.NewSimpleVariable("1", constraint.Mandatory()),
 			input.NewSimpleVariable("2"),
 		}
-		varSrcStruct := &VariableSourceStruct{variables: variables}
-		so := solver.NewDeppySolver(varSrcStruct)
-		solution, err := so.Solve(context.Background())
+
+		so := solver.NewDeppySolver()
+		solution, err := so.Solve(variables)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
 			deppy.Identifier("1"): Equal(input.NewSimpleVariable("1", constraint.Mandatory())),
 		}))
-		Expect(solution.AllVariables()).To(BeNil())
 	})
 
 	It("should select two mandatory entities", func() {
@@ -53,10 +43,8 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("2", constraint.Mandatory()),
 		}
 
-		varSrcStruct := &VariableSourceStruct{variables: variables}
-		so := solver.NewDeppySolver(varSrcStruct)
-
-		solution, err := so.Solve(context.Background())
+		so := solver.NewDeppySolver()
+		solution, err := so.Solve(variables)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution.Error()).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
@@ -72,10 +60,8 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("3"),
 		}
 
-		varSrcStruct := &VariableSourceStruct{variables: variables}
-		so := solver.NewDeppySolver(varSrcStruct)
-
-		solution, err := so.Solve(context.Background())
+		so := solver.NewDeppySolver()
+		solution, err := so.Solve(variables)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution.Error()).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
@@ -88,8 +74,8 @@ var _ = Describe("Entity", func() {
 		variables := []deppy.Variable{
 			input.NewSimpleVariable("1", constraint.Mandatory()),
 		}
-		so := solver.NewDeppySolver(&VariableSourceStruct{variables: variables})
-		solution, err := so.Solve(context.Background())
+		so := solver.NewDeppySolver()
+		solution, err := so.Solve(variables)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution).ToNot(BeNil())
 
@@ -107,19 +93,10 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("3"),
 		}
 
-		varSrcStruct := &VariableSourceStruct{variables: variables}
-		so := solver.NewDeppySolver(varSrcStruct)
-
-		solution, err := so.Solve(context.Background())
+		so := solver.NewDeppySolver()
+		solution, err := so.Solve(variables)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution.Error()).To(HaveOccurred())
-	})
-
-	It("should return peripheral errors", func() {
-		so := solver.NewDeppySolver(FailingVariableSource{})
-		solution, err := so.Solve(context.Background())
-		Expect(err).To(HaveOccurred())
-		Expect(solution).To(BeNil())
 	})
 
 	It("should select a mandatory entity and its dependency and ignore a non-mandatory prohibited variable", func() {
@@ -129,35 +106,13 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("3", constraint.Prohibited()),
 		}
 
-		varSrcStruct := &VariableSourceStruct{variables: variables}
-		so := solver.NewDeppySolver(varSrcStruct)
-
-		solution, err := so.Solve(context.Background())
+		so := solver.NewDeppySolver()
+		solution, err := so.Solve(variables)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution.Error()).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
 			deppy.Identifier("1"): Equal(input.NewSimpleVariable("1", constraint.Mandatory(), constraint.Dependency("2"))),
 			deppy.Identifier("2"): Equal(input.NewSimpleVariable("2")),
-		}))
-	})
-
-	It("should add all variables to solution if option is given", func() {
-		variables := []deppy.Variable{
-			input.NewSimpleVariable("1", constraint.Mandatory(), constraint.Dependency("2")),
-			input.NewSimpleVariable("2"),
-			input.NewSimpleVariable("3", constraint.Prohibited()),
-		}
-
-		varSrcStruct := &VariableSourceStruct{variables: variables}
-		so := solver.NewDeppySolver(varSrcStruct)
-
-		solution, err := so.Solve(context.Background(), solver.AddAllVariablesToSolution())
-		Expect(err).ToNot(HaveOccurred())
-		Expect(solution.Error()).ToNot(HaveOccurred())
-		Expect(solution.AllVariables()).To(Equal([]deppy.Variable{
-			input.NewSimpleVariable("1", constraint.Mandatory(), constraint.Dependency("2")),
-			input.NewSimpleVariable("2"),
-			input.NewSimpleVariable("3", constraint.Prohibited()),
 		}))
 	})
 
@@ -169,10 +124,8 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("4"),
 		}
 
-		varSrcStruct := &VariableSourceStruct{variables: variables}
-		so := solver.NewDeppySolver(varSrcStruct)
-
-		solution, err := so.Solve(context.Background())
+		so := solver.NewDeppySolver()
+		solution, err := so.Solve(variables)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution.Error()).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
@@ -189,10 +142,8 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("4"),
 		}
 
-		varSrcStruct := &VariableSourceStruct{variables: variables}
-		so := solver.NewDeppySolver(varSrcStruct)
-
-		solution, err := so.Solve(context.Background())
+		so := solver.NewDeppySolver()
+		solution, err := so.Solve(variables)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution.Error()).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
@@ -210,9 +161,9 @@ var _ = Describe("Entity", func() {
 			input.NewSimpleVariable("5"),
 			input.NewSimpleVariable("6"),
 		}
-		varSrcStruct := &VariableSourceStruct{variables: variables}
-		so := solver.NewDeppySolver(varSrcStruct)
-		solution, err := so.Solve(context.Background())
+
+		so := solver.NewDeppySolver()
+		solution, err := so.Solve(variables)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(solution.Error()).ToNot(HaveOccurred())
 		Expect(solution.SelectedVariables()).To(MatchAllKeys(Keys{
@@ -223,12 +174,3 @@ var _ = Describe("Entity", func() {
 		}))
 	})
 })
-
-var _ input.VariableSource = &FailingVariableSource{}
-
-type FailingVariableSource struct {
-}
-
-func (f FailingVariableSource) GetVariables(_ context.Context) ([]deppy.Variable, error) {
-	return nil, fmt.Errorf("error")
-}

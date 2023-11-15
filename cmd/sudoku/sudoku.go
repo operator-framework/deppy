@@ -1,7 +1,6 @@
 package sudoku
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 
@@ -10,10 +9,6 @@ import (
 	"github.com/operator-framework/deppy/pkg/deppy/input"
 )
 
-var _ input.VariableSource = &Sudoku{}
-
-type Sudoku struct{}
-
 func GetID(row int, col int, num int) deppy.Identifier {
 	n := num
 	n += col * 9
@@ -21,11 +16,7 @@ func GetID(row int, col int, num int) deppy.Identifier {
 	return deppy.Identifier(fmt.Sprintf("%03d", n))
 }
 
-func NewSudoku() *Sudoku {
-	return &Sudoku{}
-}
-
-func (s Sudoku) GetVariables(_ context.Context) ([]deppy.Variable, error) {
+func GenerateVariables() ([]deppy.Variable, error) {
 	// adapted from: https://github.com/go-air/gini/blob/871d828a26852598db2b88f436549634ba9533ff/sudoku_test.go#L10
 	variables := make(map[deppy.Identifier]*input.SimpleVariable, 0)
 	inorder := make([]deppy.Variable, 0)

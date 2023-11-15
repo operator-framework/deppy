@@ -2,7 +2,6 @@ package solver
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"testing"
 
@@ -296,7 +295,7 @@ func TestSolve(t *testing.T) {
 				t.Fatalf("failed to initialize solver: %s", err)
 			}
 
-			installed, err := s.Solve(context.TODO())
+			installed, err := s.Solve()
 
 			var ids []deppy.Identifier
 			for _, variable := range installed {
