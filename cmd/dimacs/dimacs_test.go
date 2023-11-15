@@ -2,7 +2,6 @@ package dimacs_test
 
 import (
 	"bytes"
-	"context"
 	"testing"
 
 	"github.com/operator-framework/deppy/pkg/deppy"
@@ -43,10 +42,7 @@ var _ = Describe("Dimacs Variable Source", func() {
 		problem := "p cnf 3 1\n1 2 3 0\n"
 		d, err := dimacs.NewDimacs(bytes.NewReader([]byte(problem)))
 		Expect(err).ToNot(HaveOccurred())
-		vs := dimacs.NewDimacsVariableSource(d)
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		variables, err := vs.GetVariables(ctx)
+		variables, err := dimacs.GenerateVariables(d)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(variables).To(HaveLen(3))
 

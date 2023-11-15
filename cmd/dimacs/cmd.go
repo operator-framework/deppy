@@ -1,7 +1,6 @@
 package dimacs
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -53,15 +52,19 @@ func solve(path string) error {
 	}
 
 	// build solver
-	so := solver.NewDeppySolver(NewDimacsVariableSource(dimacs))
+	so := solver.NewDeppySolver()
 
 	// get solution
-	solution, err := so.Solve(context.Background(), solver.AddAllVariablesToSolution())
+	vars, err := GenerateVariables(dimacs)
+	if err != nil {
+		return fmt.Errorf("error generating variables: %s", err)
+	}
+	solution, err := so.Solve(vars)
 	if err != nil {
 		fmt.Printf("no solution found: %s\n", err)
 	} else {
 		fmt.Println("solution found:")
-		for _, variable := range solution.AllVariables() {
+		for _, variable := range vars {
 			fmt.Printf("%s = %t\n", variable.Identifier(), solution.IsSelected(variable.Identifier()))
 		}
 	}

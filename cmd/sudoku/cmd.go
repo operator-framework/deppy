@@ -1,7 +1,6 @@
 package sudoku
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -23,11 +22,14 @@ func NewSudokuCommand() *cobra.Command {
 
 func solve() error {
 	// build solver
-	sudoku := &Sudoku{}
-	so := solver.NewDeppySolver(sudoku)
+	so := solver.NewDeppySolver()
 
 	// get solution
-	solution, err := so.Solve(context.Background())
+	vars, err := GenerateVariables()
+	if err != nil {
+		return err
+	}
+	solution, err := so.Solve(vars)
 	if err != nil {
 		fmt.Println("no solution found")
 	} else {

@@ -1,7 +1,6 @@
 package solver
 
 import (
-	"context"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -73,7 +72,7 @@ func BenchmarkSolve(b *testing.B) {
 		if err != nil {
 			b.Fatalf("failed to initialize solver: %s", err)
 		}
-		_, err = s.Solve(context.Background())
+		_, err = s.Solve()
 		if err != nil {
 			b.Fatalf("failed to initialize solver: %s", err)
 		}
