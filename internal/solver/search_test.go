@@ -3,7 +3,6 @@
 package solver
 
 import (
-	"context"
 	"testing"
 
 	"github.com/go-air/gini/inter"
@@ -96,7 +95,7 @@ func TestSearch(t *testing.T) {
 				anchors = append(anchors, h.lits.LitOf(id))
 			}
 
-			result, ms, _ := h.Do(context.Background(), anchors)
+			result, ms, _ := h.Do(anchors)
 
 			assert.Equal(tt.Result, result)
 			var ids []deppy.Identifier

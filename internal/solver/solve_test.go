@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/operator-framework/deppy/pkg/deppy/constraint"
 
@@ -290,12 +291,12 @@ func TestSolve(t *testing.T) {
 			assert := assert.New(t)
 
 			var traces bytes.Buffer
-			s, err := NewSolver(WithInput(tt.Variables), WithTracer(LoggingTracer{Writer: &traces}))
+			s, err := New(WithTracer(LoggingTracer{Writer: &traces}))
 			if err != nil {
 				t.Fatalf("failed to initialize solver: %s", err)
 			}
 
-			installed, err := s.Solve()
+			installed, err := s.Solve(tt.Variables)
 
 			var ids []deppy.Identifier
 			for _, variable := range installed {
@@ -312,9 +313,12 @@ func TestSolve(t *testing.T) {
 }
 
 func TestDuplicateIdentifier(t *testing.T) {
-	_, err := NewSolver(WithInput([]deppy.Variable{
+	s, err := New()
+	require.NoError(t, err)
+
+	_, err = s.Solve([]deppy.Variable{
 		variable("a"),
 		variable("a"),
-	}))
+	})
 	assert.Equal(t, DuplicateIdentifier("a"), err)
 }
