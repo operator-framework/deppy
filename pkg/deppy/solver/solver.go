@@ -46,12 +46,12 @@ func NewDeppySolver() *DeppySolver {
 }
 
 func (d DeppySolver) Solve(vars []deppy.Variable) (*Solution, error) {
-	satSolver, err := solver.NewSolver(solver.WithInput(vars))
+	satSolver, err := solver.New()
 	if err != nil {
 		return nil, err
 	}
 
-	selection, err := satSolver.Solve()
+	selection, err := satSolver.Solve(vars)
 	if err != nil && !errors.As(err, &deppy.NotSatisfiable{}) {
 		return nil, err
 	}

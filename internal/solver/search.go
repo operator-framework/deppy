@@ -1,8 +1,6 @@
 package solver
 
 import (
-	"context"
-
 	"github.com/go-air/gini/inter"
 	"github.com/go-air/gini/z"
 
@@ -157,7 +155,7 @@ func (h *search) Lits() []z.Lit {
 	return result
 }
 
-func (h *search) Do(_ context.Context, anchors []z.Lit) (int, []z.Lit, map[z.Lit]struct{}) {
+func (h *search) Do(anchors []z.Lit) (int, []z.Lit, map[z.Lit]struct{}) {
 	for _, m := range anchors {
 		h.PushChoiceBack(choice{candidates: []z.Lit{m}})
 	}

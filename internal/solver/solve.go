@@ -1,7 +1,6 @@
 package solver
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -12,17 +11,8 @@ import (
 	"github.com/operator-framework/deppy/pkg/deppy"
 )
 
-var ErrIncomplete = errors.New("cancelled before a solution could be found")
-
-type Solver interface {
-	Solve() ([]deppy.Variable, error)
-}
-
-type solver struct {
-	g      inter.S
-	litMap *litMapping
+type Solver struct {
 	tracer deppy.Tracer
-	buffer []z.Lit
 }
 
 const (
@@ -33,81 +23,87 @@ const (
 
 // Solve takes a slice containing all Variables and returns a slice
 // containing only those Variables that were selected for
-// installation. If no solution is possible, or if the provided
-// Context times out or is cancelled, an error is returned.
-func (s *solver) Solve() ([]deppy.Variable, error) {
-	result, err := s.solve()
+// installation. If no solution is possible an error is returned.
+func (s *Solver) Solve(input []deppy.Variable) ([]deppy.Variable, error) {
+	giniSolver := gini.New()
+	litMap, err := newLitMapping(input)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := s.solve(giniSolver, litMap)
 
 	// This likely indicates a bug, so discard whatever
 	// return values were produced.
-	if derr := s.litMap.Error(); derr != nil {
+	if derr := litMap.Error(); derr != nil {
 		return nil, derr
 	}
 
 	return result, err
 }
 
-func (s *solver) solve() ([]deppy.Variable, error) {
+func (s *Solver) solve(giniSolver inter.S, litMap *litMapping) ([]deppy.Variable, error) {
 	// teach all constraints to the solver
-	s.litMap.AddConstraints(s.g)
+	litMap.AddConstraints(giniSolver)
 
 	// collect literals of all mandatory variables to assume as a baseline
-	anchors := s.litMap.AnchorIdentifiers()
+	anchors := litMap.AnchorIdentifiers()
 	assumptions := make([]z.Lit, len(anchors))
 	for i := range anchors {
-		assumptions[i] = s.litMap.LitOf(anchors[i])
+		assumptions[i] = litMap.LitOf(anchors[i])
 	}
 
 	// assume that all constraints hold
-	s.litMap.AssumeConstraints(s.g)
-	s.g.Assume(assumptions...)
+	litMap.AssumeConstraints(giniSolver)
+	giniSolver.Assume(assumptions...)
 
+	var buffer []z.Lit
 	var aset map[z.Lit]struct{}
 	// push a new test scope with the baseline assumptions, to prevent them from being cleared during search
-	outcome, _ := s.g.Test(nil)
+	outcome, _ := giniSolver.Test(nil)
 	if outcome != satisfiable && outcome != unsatisfiable {
 		// searcher for solutions in input Order, so that preferences
-		// can be taken into acount (i.e. prefer one catalog to another)
-		outcome, assumptions, aset = (&search{s: s.g, lits: s.litMap, tracer: s.tracer}).Do(context.Background(), assumptions)
+		// can be taken into account (i.e. prefer one catalog to another)
+		outcome, assumptions, aset = (&search{s: giniSolver, lits: litMap, tracer: s.tracer}).Do(assumptions)
 	}
 	switch outcome {
 	case satisfiable:
-		s.buffer = s.litMap.Lits(s.buffer)
+		buffer = litMap.Lits(buffer)
 		var extras, excluded []z.Lit
-		for _, m := range s.buffer {
+		for _, m := range buffer {
 			if _, ok := aset[m]; ok {
 				continue
 			}
-			if !s.g.Value(m) {
+			if !giniSolver.Value(m) {
 				excluded = append(excluded, m.Not())
 				continue
 			}
 			extras = append(extras, m)
 		}
-		s.g.Untest()
-		cs := s.litMap.CardinalityConstrainer(s.g, extras)
-		s.g.Assume(assumptions...)
-		s.g.Assume(excluded...)
-		s.litMap.AssumeConstraints(s.g)
-		_, s.buffer = s.g.Test(s.buffer)
+		giniSolver.Untest()
+		cs := litMap.CardinalityConstrainer(giniSolver, extras)
+		giniSolver.Assume(assumptions...)
+		giniSolver.Assume(excluded...)
+		litMap.AssumeConstraints(giniSolver)
+		giniSolver.Test(nil)
 		for w := 0; w <= cs.N(); w++ {
-			s.g.Assume(cs.Leq(w))
-			if s.g.Solve() == satisfiable {
-				return s.litMap.Variables(s.g), nil
+			giniSolver.Assume(cs.Leq(w))
+			if giniSolver.Solve() == satisfiable {
+				return litMap.Variables(giniSolver), nil
 			}
 		}
 		// Something is wrong if we can't find a model anymore
 		// after optimizing for cardinality.
 		return nil, fmt.Errorf("unexpected internal error")
 	case unsatisfiable:
-		return nil, deppy.NotSatisfiable(s.litMap.Conflicts(s.g))
+		return nil, deppy.NotSatisfiable(litMap.Conflicts(giniSolver))
 	}
 
-	return nil, ErrIncomplete
+	return nil, errors.New("cancelled before a solution could be found")
 }
 
-func NewSolver(options ...Option) (Solver, error) {
-	s := solver{g: gini.New()}
+func New(options ...Option) (*Solver, error) {
+	s := Solver{}
 	for _, option := range append(options, defaults...) {
 		if err := option(&s); err != nil {
 			return nil, err
@@ -116,33 +112,17 @@ func NewSolver(options ...Option) (Solver, error) {
 	return &s, nil
 }
 
-type Option func(s *solver) error
-
-func WithInput(input []deppy.Variable) Option {
-	return func(s *solver) error {
-		var err error
-		s.litMap, err = newLitMapping(input)
-		return err
-	}
-}
+type Option func(s *Solver) error
 
 func WithTracer(t deppy.Tracer) Option {
-	return func(s *solver) error {
+	return func(s *Solver) error {
 		s.tracer = t
 		return nil
 	}
 }
 
 var defaults = []Option{
-	func(s *solver) error {
-		if s.litMap == nil {
-			var err error
-			s.litMap, err = newLitMapping(nil)
-			return err
-		}
-		return nil
-	},
-	func(s *solver) error {
+	func(s *Solver) error {
 		if s.tracer == nil {
 			s.tracer = DefaultTracer{}
 		}

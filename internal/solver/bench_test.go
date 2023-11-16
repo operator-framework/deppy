@@ -68,20 +68,11 @@ var BenchmarkInput = func() []deppy.Variable {
 
 func BenchmarkSolve(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		s, err := NewSolver(WithInput(BenchmarkInput))
+		s, err := New()
 		if err != nil {
 			b.Fatalf("failed to initialize solver: %s", err)
 		}
-		_, err = s.Solve()
-		if err != nil {
-			b.Fatalf("failed to initialize solver: %s", err)
-		}
-	}
-}
-
-func BenchmarkNewInput(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		_, err := NewSolver(WithInput(BenchmarkInput))
+		_, err = s.Solve(BenchmarkInput)
 		if err != nil {
 			b.Fatalf("failed to initialize solver: %s", err)
 		}
