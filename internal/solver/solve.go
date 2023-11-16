@@ -54,7 +54,7 @@ func (s *solver) solve() ([]deppy.Variable, error) {
 	// collect literals of all mandatory variables to assume as a baseline
 	anchors := s.litMap.AnchorIdentifiers()
 	assumptions := make([]z.Lit, len(anchors))
-	for i := range s.litMap.AnchorIdentifiers() {
+	for i := range anchors {
 		assumptions[i] = s.litMap.LitOf(anchors[i])
 	}
 
