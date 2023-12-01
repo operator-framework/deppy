@@ -22,19 +22,22 @@ func NewSudokuCommand() *cobra.Command {
 
 func solve() error {
 	// build solver
-	so := solver.NewDeppySolver()
+	so, err := solver.New()
+	if err != nil {
+		return err
+	}
 
 	// get solution
 	vars, err := GenerateVariables()
 	if err != nil {
 		return err
 	}
-	solution, err := so.Solve(vars)
+	selection, err := so.Solve(vars)
 	if err != nil {
 		fmt.Println("no solution found")
 	} else {
 		selected := map[deppy.Identifier]struct{}{}
-		for _, variable := range solution.SelectedVariables() {
+		for _, variable := range selection {
 			selected[variable.Identifier()] = struct{}{}
 		}
 		for row := 0; row < 9; row++ {

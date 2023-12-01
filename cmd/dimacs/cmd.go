@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/operator-framework/deppy/pkg/deppy"
 	"github.com/operator-framework/deppy/pkg/deppy/solver"
 )
 
@@ -52,20 +53,29 @@ func solve(path string) error {
 	}
 
 	// build solver
-	so := solver.NewDeppySolver()
+	so, err := solver.New()
+	if err != nil {
+		return err
+	}
 
 	// get solution
 	vars, err := GenerateVariables(dimacs)
 	if err != nil {
 		return fmt.Errorf("error generating variables: %s", err)
 	}
-	solution, err := so.Solve(vars)
+	selection, err := so.Solve(vars)
 	if err != nil {
 		fmt.Printf("no solution found: %s\n", err)
 	} else {
+		selected := map[deppy.Identifier]struct{}{}
+		for _, variable := range selection {
+			selected[variable.Identifier()] = struct{}{}
+		}
+
 		fmt.Println("solution found:")
 		for _, variable := range vars {
-			fmt.Printf("%s = %t\n", variable.Identifier(), solution.IsSelected(variable.Identifier()))
+			_, ok := selected[variable.Identifier()]
+			fmt.Printf("%s = %t\n", variable.Identifier(), ok)
 		}
 	}
 
