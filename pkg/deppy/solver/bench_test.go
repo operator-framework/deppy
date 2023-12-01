@@ -20,7 +20,7 @@ var BenchmarkInput = func() []deppy.Variable {
 		nConflict   = 3
 	)
 
-	random := rand.New(rand.NewSource(seed))
+	random := rand.New(rand.NewSource(seed)) //nolint:gosec // G404: Use of weak random number generator (math/rand instead of crypto/rand) is ignored as this is not security-sensitive.
 
 	id := func(i int) deppy.Identifier {
 		return deppy.Identifier(strconv.Itoa(i))
