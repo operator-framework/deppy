@@ -82,15 +82,15 @@ func Not() deppy.Constraint {
 }
 
 type DependencyConstraint struct {
-	dependencyIDs []deppy.Identifier
+	DependencyIDs []deppy.Identifier
 }
 
 func (constraint *DependencyConstraint) String(subject deppy.Identifier) string {
-	if len(constraint.dependencyIDs) == 0 {
+	if len(constraint.DependencyIDs) == 0 {
 		return fmt.Sprintf("%s has a DependencyConstraint without any candidates to satisfy it", subject)
 	}
-	s := make([]string, len(constraint.dependencyIDs))
-	for i, each := range constraint.dependencyIDs {
+	s := make([]string, len(constraint.DependencyIDs))
+	for i, each := range constraint.DependencyIDs {
 		s[i] = string(each)
 	}
 	return fmt.Sprintf("%s requires at least one of %s", subject, strings.Join(s, ", "))
@@ -98,18 +98,14 @@ func (constraint *DependencyConstraint) String(subject deppy.Identifier) string 
 
 func (constraint *DependencyConstraint) Apply(lm deppy.LitMapping, subject deppy.Identifier) z.Lit {
 	m := lm.LitOf(subject).Not()
-	for _, each := range constraint.dependencyIDs {
+	for _, each := range constraint.DependencyIDs {
 		m = lm.LogicCircuit().Or(m, lm.LitOf(each))
 	}
 	return m
 }
 
-func (constraint *DependencyConstraint) DependencyIDs() []deppy.Identifier {
-	return constraint.dependencyIDs
-}
-
 func (constraint *DependencyConstraint) Order() []deppy.Identifier {
-	return constraint.dependencyIDs
+	return constraint.DependencyIDs
 }
 
 func (constraint *DependencyConstraint) Anchor() bool {
@@ -123,20 +119,20 @@ func (constraint *DependencyConstraint) Anchor() bool {
 // argument list have higher preference than those appearing later.
 func Dependency(ids ...deppy.Identifier) deppy.Constraint {
 	return &DependencyConstraint{
-		dependencyIDs: ids,
+		DependencyIDs: ids,
 	}
 }
 
 type ConflictConstraint struct {
-	conflictingID deppy.Identifier
+	ConflictingID deppy.Identifier
 }
 
 func (constraint *ConflictConstraint) String(subject deppy.Identifier) string {
-	return fmt.Sprintf("%s conflicts with %s", subject, constraint.conflictingID)
+	return fmt.Sprintf("%s conflicts with %s", subject, constraint.ConflictingID)
 }
 
 func (constraint *ConflictConstraint) Apply(lm deppy.LitMapping, subject deppy.Identifier) z.Lit {
-	return lm.LogicCircuit().Or(lm.LitOf(subject).Not(), lm.LitOf(constraint.conflictingID).Not())
+	return lm.LogicCircuit().Or(lm.LitOf(subject).Not(), lm.LitOf(constraint.ConflictingID).Not())
 }
 
 func (constraint *ConflictConstraint) Order() []deppy.Identifier {
@@ -152,36 +148,29 @@ func (constraint *ConflictConstraint) Anchor() bool {
 // the given Identifier, OrConstraint neither, but not both.
 func Conflict(id deppy.Identifier) deppy.Constraint {
 	return &ConflictConstraint{
-		conflictingID: id,
+		ConflictingID: id,
 	}
 }
 
 type AtMostConstraint struct {
-	ids []deppy.Identifier
-	n   int
+	IDs []deppy.Identifier
+	N   int
 }
 
 func (constraint *AtMostConstraint) String(subject deppy.Identifier) string {
-	s := make([]string, len(constraint.ids))
-	for i, each := range constraint.ids {
+	s := make([]string, len(constraint.IDs))
+	for i, each := range constraint.IDs {
 		s[i] = string(each)
 	}
-	return fmt.Sprintf("%s permits at most %d of %s", subject, constraint.n, strings.Join(s, ", "))
-}
-func (constraint *AtMostConstraint) N() int {
-	return constraint.n
-}
-
-func (constraint *AtMostConstraint) Ids() []deppy.Identifier {
-	return constraint.ids
+	return fmt.Sprintf("%s permits at most %d of %s", subject, constraint.N, strings.Join(s, ", "))
 }
 
 func (constraint *AtMostConstraint) Apply(lm deppy.LitMapping, _ deppy.Identifier) z.Lit {
-	ms := make([]z.Lit, len(constraint.ids))
-	for i, each := range constraint.ids {
+	ms := make([]z.Lit, len(constraint.IDs))
+	for i, each := range constraint.IDs {
 		ms[i] = lm.LitOf(each)
 	}
-	return lm.LogicCircuit().CardSort(ms).Leq(constraint.n)
+	return lm.LogicCircuit().CardSort(ms).Leq(constraint.N)
 }
 
 func (constraint *AtMostConstraint) Order() []deppy.Identifier {
@@ -197,15 +186,15 @@ func (constraint *AtMostConstraint) Anchor() bool {
 // Identifiers.
 func AtMost(n int, ids ...deppy.Identifier) deppy.Constraint {
 	return &AtMostConstraint{
-		ids: ids,
-		n:   n,
+		IDs: ids,
+		N:   n,
 	}
 }
 
 type OrConstraint struct {
-	operand          deppy.Identifier
-	isSubjectNegated bool
-	isOperandNegated bool
+	Operand          deppy.Identifier
+	IsSubjectNegated bool
+	IsOperandNegated bool
 }
 
 func (constraint *OrConstraint) String(subject deppy.Identifier) string {
@@ -214,11 +203,11 @@ func (constraint *OrConstraint) String(subject deppy.Identifier) string {
 
 func (constraint *OrConstraint) Apply(lm deppy.LitMapping, subject deppy.Identifier) z.Lit {
 	subjectLit := lm.LitOf(subject)
-	if constraint.isSubjectNegated {
+	if constraint.IsSubjectNegated {
 		subjectLit = subjectLit.Not()
 	}
-	operandLit := lm.LitOf(constraint.operand)
-	if constraint.isOperandNegated {
+	operandLit := lm.LitOf(constraint.Operand)
+	if constraint.IsOperandNegated {
 		operandLit = operandLit.Not()
 	}
 	return lm.LogicCircuit().Or(subjectLit, operandLit)
@@ -238,8 +227,8 @@ func (constraint *OrConstraint) Anchor() bool {
 // if both are true: ~subject OR ~identifier
 func Or(identifier deppy.Identifier, isSubjectNegated bool, isOperandNegated bool) deppy.Constraint {
 	return &OrConstraint{
-		operand:          identifier,
-		isSubjectNegated: isSubjectNegated,
-		isOperandNegated: isOperandNegated,
+		Operand:          identifier,
+		IsSubjectNegated: isSubjectNegated,
+		IsOperandNegated: isOperandNegated,
 	}
 }
