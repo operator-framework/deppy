@@ -99,7 +99,8 @@ func (s *Solver) solve(giniSolver inter.S, litMap *litMapping) ([]deppy.Variable
 		return nil, deppy.NotSatisfiable(litMap.Conflicts(giniSolver))
 	}
 
-	return nil, errors.New("cancelled before a solution could be found")
+	// This should never happen
+	return nil, errors.New("unknown outcome")
 }
 
 func New(options ...Option) (*Solver, error) {
